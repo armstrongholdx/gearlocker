@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  prefix    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  items     Item[]
+}
+
+model Item {
+  id               String             @id @default(cuid())
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  assetId          String             @unique
+  name             String
+  categoryId       String?
+  subcategory      String?
+  brand            String?
+  model            String?
+  serialNumber     String?
+  description      String?
+  condition        String?
+  status           ItemStatus         @default(active)
+  purchaseDate     DateTime?
+  purchasePrice    Decimal?           @db.Decimal(10, 2)
+  replacementValue Decimal?           @db.Decimal(10, 2)
+  currency         String             @default("USD")
+  locationId       String?
+  notes            String?
+  ownerName        String?
+  qrCodeValue      String             @unique
+  isConsumable     Boolean            @default(false)
+  quantity         Int                @default(1)
+  imageCoverUrl    String?
+  category         Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  location         Location?          @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  attachments      Attachment[]
+  historyEvents    ItemHistoryEvent[]
+  kits             ItemKit[]
+  tags             ItemTag[]
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  items     ItemTag[]
+}
+
+model ItemTag {
+  itemId String
+  tagId  String
+  item   Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, tagId])
+}
+
+model Attachment {
+  id        String         @id @default(cuid())
+  itemId    String
+  type      AttachmentType
+  fileName  String
+  fileUrl   String
+  fileSize  Int?
+  mimeType  String?
+  notes     String?
+  createdAt DateTime       @default(now())
+  item      Item           @relation(fields: [itemId], references: [id], onDelete: Cascade)
+}
+
+model Kit {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  location    String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  items       ItemKit[]
+}
+
+model ItemKit {
+  itemId String
+  kitId  String
+  item   Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  kit    Kit  @relation(fields: [kitId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, kitId])
+}
+
+model ItemHistoryEvent {
+  id        String           @id @default(cuid())
+  itemId    String
+  type      ItemHistoryType
+  timestamp DateTime         @default(now())
+  summary   String
+  details   String?
+  item      Item             @relation(fields: [itemId], references: [id], onDelete: Cascade)
+}
+
+model Location {
+  id               String     @id @default(cuid())
+  name             String
+  description      String?
+  parentLocationId String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  parentLocation   Location?  @relation("LocationTree", fields: [parentLocationId], references: [id], onDelete: SetNull)
+  childLocations   Location[] @relation("LocationTree")
+  items            Item[]
+
+  @@unique([name, parentLocationId])
+}
+
+enum ItemStatus {
+  active
+  checked_out
+  in_repair
+  missing
+  stolen
+  sold
+  retired
+}
+
+enum AttachmentType {
+  photo
+  receipt
+  serial_photo
+  manual
+  warranty
+  misc
+}
+
+enum ItemHistoryType {
+  created
+  updated
+  checked_in
+  checked_out
+  moved
+  repair
+  missing
+  stolen
+  sold
+  note
+}
