@@ -7,21 +7,55 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const items = await prisma.item.findMany({
     orderBy: { createdAt: "desc" },
-    include: { category: true, location: true },
+    include: {
+      category: true,
+      location: true,
+      tags: { include: { tag: true } },
+      kits: { include: { kit: true } },
+      attachments: true,
+    },
   });
 
   const rows = [
-    ["assetId", "name", "category", "status", "location", "serialNumber", "replacementValue", "currency", "ownerName"],
-    ...items.map((item) => [
+    [
+      "assetId",
+      "name",
+      "category",
+      "subcategory",
+      "status",
+      "conditionGrade",
+      "location",
+      "serialNumber",
+      "replacementValue",
+      "purchasePrice",
+      "currency",
+      "ownerName",
+      "purchaseSource",
+      "purchaseReference",
+      "tags",
+      "kits",
+      "attachmentCount",
+      "itemUrl",
+    ],
+    ...items.map((item: any) => [
       item.assetId,
       item.name,
       item.category?.name ?? "",
+      item.subcategory ?? "",
       item.status,
+      item.conditionGrade ?? "",
       item.location?.name ?? "",
       item.serialNumber ?? "",
       item.replacementValue?.toString() ?? "",
+      item.purchasePrice?.toString() ?? "",
       item.currency,
       item.ownerName ?? "",
+      item.purchaseSource ?? "",
+      item.purchaseReference ?? "",
+      item.tags.map((entry) => entry.tag.name).join(" | "),
+      item.kits.map((entry) => entry.kit.name).join(" | "),
+      String(item.attachments.length),
+      `/items/${encodeURIComponent(item.assetId)}`,
     ]),
   ];
 

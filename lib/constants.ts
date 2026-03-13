@@ -1,6 +1,6 @@
 export const itemStatuses = [
+  "available",
   "active",
-  "checked_out",
   "in_repair",
   "missing",
   "stolen",

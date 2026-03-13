@@ -2,6 +2,8 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Boxes, ClipboardCheck, MapPinned, ScanLine } from "lucide-react";
+import type { ComponentType } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,25 +23,69 @@ export default function ScanPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-4">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Scan</h1>
-        <p className="text-muted-foreground">Mobile-first resolver page with manual fallback. Camera scanning is staged for the next pass.</p>
+        <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Scan</div>
+        <h1 className="text-3xl font-semibold tracking-tight">Quick-action scan console</h1>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Manual lookup</CardTitle>
-          <CardDescription>
-            Browser camera scanning is not wired in this first pass because reliability varies across iOS/Android browsers. Manual asset ID fallback keeps the scan workflow usable immediately.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input value={assetId} onChange={(event) => setAssetId(event.target.value)} placeholder="CAM-001" />
-            <Button type="submit">Open item</Button>
-          </form>
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
+        <Card className="bg-slate-950 text-white">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-white">
+              <ScanLine className="h-5 w-5 text-accent" />
+              Action-first
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            <ScanConcept icon={Boxes} title="Item" body="Check out, move, inspect, repair." />
+            <ScanConcept icon={ClipboardCheck} title="Kit" body="Check out or begin return verification." />
+            <ScanConcept icon={MapPinned} title="Location" body="Keep storage path visible while acting." />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Manual lookup</CardTitle>
+            <CardDescription>Use asset ID to open the same mobile action surface that QR scanning lands on.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <Input value={assetId} onChange={(event) => setAssetId(event.target.value)} placeholder="CAM-001 or KIT-001" />
+              <Button type="submit" className="w-full sm:w-auto">Open action panel</Button>
+            </form>
+            <div className="grid gap-3 md:grid-cols-2">
+              <QuickActionHint title="Item" items="Inspect, check out, check in, move, repair, missing." />
+              <QuickActionHint title="Kit" items="Inspect, check out whole kit, begin return verification." />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function QuickActionHint({ title, items }: { title: string; items: string }) {
+  return (
+    <div className="rounded-[1.1rem] border border-slate-200 bg-secondary/55 p-4">
+      <div className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{title}</div>
+      <div className="mt-2 text-sm text-muted-foreground">{items}</div>
+    </div>
+  );
+}
+
+function ScanConcept({
+  icon: Icon,
+  title,
+  body,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="rounded-[1.15rem] border border-white/10 bg-white/5 p-4">
+      <Icon className="h-4 w-4 text-accent" />
+      <div className="mt-3 font-semibold text-white">{title}</div>
+      <div className="mt-1 text-sm text-slate-300">{body}</div>
     </div>
   );
 }

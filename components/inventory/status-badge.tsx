@@ -1,15 +1,9 @@
+import { ItemStatus } from "@prisma/client";
+
 import { Badge } from "@/components/ui/badge";
+import { itemStatusMeta } from "@/lib/inventory/domain";
 
-const variantByStatus = {
-  active: "success",
-  checked_out: "warning",
-  in_repair: "warning",
-  missing: "danger",
-  stolen: "danger",
-  sold: "outline",
-  retired: "outline",
-} as const;
-
-export function StatusBadge({ status }: { status: keyof typeof variantByStatus }) {
-  return <Badge variant={variantByStatus[status]}>{status.replace("_", " ")}</Badge>;
+export function StatusBadge({ status }: { status: ItemStatus }) {
+  const meta = itemStatusMeta[status];
+  return <Badge variant={meta.variant}>{meta.label}</Badge>;
 }

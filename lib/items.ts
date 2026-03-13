@@ -7,6 +7,7 @@ export type InventoryFilters = {
   category?: string;
   status?: string;
   location?: string;
+  tag?: string;
   sort?: "recent" | "name" | "replacementValue";
 };
 
@@ -27,6 +28,7 @@ export async function getInventory(filters: InventoryFilters = {}) {
       filters.category ? { category: { slug: filters.category } } : {},
       filters.status ? { status: filters.status as ItemStatus } : {},
       filters.location ? { locationId: filters.location } : {},
+      filters.tag ? { tags: { some: { tag: { slug: filters.tag } } } } : {},
     ],
   };
 
@@ -55,7 +57,10 @@ export async function getInventory(filters: InventoryFilters = {}) {
 export async function getInventoryFilters() {
   const [categories, locations, tags] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: "asc" } }),
-    prisma.location.findMany({ orderBy: { name: "asc" } }),
+    prisma.location.findMany({
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      include: { parentLocation: { include: { parentLocation: true } } },
+    }),
     prisma.tag.findMany({ orderBy: { name: "asc" } }),
   ]);
 

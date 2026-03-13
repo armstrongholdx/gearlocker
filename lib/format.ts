@@ -19,3 +19,11 @@ export function formatDate(value: Date | string | null) {
 
   return format(new Date(value), "MMM d, yyyy");
 }
+
+export function formatDateInput(value: Date | string | null) {
+  if (!value) {
+    return "";
+  }
+
+  return format(new Date(value), "yyyy-MM-dd");
+}

@@ -1,6 +1,14 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "../lib/prisma";
+import { buildQrCodeValue } from "../lib/paths";
+
+function toSlug(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
 const categories = [
   ["Camera", "camera", "CAM"],
@@ -20,10 +28,10 @@ const categories = [
 ] as const;
 
 const locations = [
-  { name: "Main Office", description: "Primary office shelving" },
-  { name: "Truck", description: "Load-out vehicle" },
-  { name: "Storage Unit", description: "Overflow storage" },
-  { name: "Studio Shelf A", description: "Studio shelving near prep table" },
+  { name: "Main Office", code: "LOC-OFFICE", description: "Primary office shelving" },
+  { name: "Truck", code: "LOC-TRUCK", description: "Load-out vehicle" },
+  { name: "Storage Unit", code: "LOC-STORAGE", description: "Overflow storage" },
+  { name: "Studio", code: "LOC-STUDIO", description: "Working studio area" },
 ] as const;
 
 const tags = ["A-Cam", "Documentary", "Lighting Kit", "Audio Bag", "Prep Ready"];
@@ -33,7 +41,7 @@ async function main() {
     await prisma.category.upsert({
       where: { slug },
       update: { name, prefix },
-      create: { name, slug, prefix },
+      create: { name, slug, prefix, description: `${name} gear and support items.` },
     });
   }
 
@@ -56,10 +64,33 @@ async function main() {
 
   for (const name of tags) {
     await prisma.tag.upsert({
-      where: { name },
-      update: {},
-      create: { name },
+      where: { slug: toSlug(name) },
+      update: { name },
+      create: { name, slug: toSlug(name) },
     });
+  }
+
+  const studio = await prisma.location.findFirstOrThrow({ where: { name: "Studio" } });
+  const truck = await prisma.location.findFirstOrThrow({ where: { name: "Truck" } });
+  const storageUnit = await prisma.location.findFirstOrThrow({ where: { name: "Storage Unit" } });
+  const office = await prisma.location.findFirstOrThrow({ where: { name: "Main Office" } });
+
+  const childLocations = [
+    { name: "Studio Shelf A", code: "LOC-STUDIO-A", parentLocationId: studio.id, description: "Studio shelving near prep table" },
+    { name: "Truck Lighting Bay", code: "LOC-TRUCK-LIGHT", parentLocationId: truck.id, description: "Truck bay for lighting and distro" },
+    { name: "Office Camera Shelf", code: "LOC-OFFICE-CAM", parentLocationId: office.id, description: "Primary camera shelf" },
+  ];
+
+  for (const location of childLocations) {
+    const existing = await prisma.location.findFirst({
+      where: { name: location.name, parentLocationId: location.parentLocationId },
+    });
+
+    if (existing) {
+      await prisma.location.update({ where: { id: existing.id }, data: location });
+    } else {
+      await prisma.location.create({ data: location });
+    }
   }
 
   const [camera, lens, lighting, grip, power, audio, props, textiles] = await Promise.all([
@@ -73,25 +104,32 @@ async function main() {
     prisma.category.findUniqueOrThrow({ where: { slug: "curtains-textiles" } }),
   ]);
 
-  const office = await prisma.location.findFirstOrThrow({ where: { name: "Main Office" } });
-  const truck = await prisma.location.findFirstOrThrow({ where: { name: "Truck" } });
-  const storageUnit = await prisma.location.findFirstOrThrow({ where: { name: "Storage Unit" } });
   const studioShelf = await prisma.location.findFirstOrThrow({ where: { name: "Studio Shelf A" } });
+  const officeCameraShelf = await prisma.location.findFirstOrThrow({ where: { name: "Office Camera Shelf" } });
+  const truckLightingBay = await prisma.location.findFirstOrThrow({ where: { name: "Truck Lighting Bay" } });
 
   const demoItems = [
     {
       assetId: "CAM-001",
       name: "Sony FX6",
       categoryId: camera.id,
+      subcategory: "Cinema camera body",
       brand: "Sony",
       model: "FX6",
       serialNumber: "FX6-28491",
-      status: "active",
-      locationId: office.id,
-      ownerName: "William Armstrong",
-      qrCodeValue: "/scan/CAM-001",
-      replacementValue: new Prisma.Decimal(5998),
+      description: "Full-frame cinema body with top handle and loupe.",
+      conditionGrade: "good",
+      conditionNotes: "Minor cosmetic wear on handle.",
+      status: "available",
+      purchaseDate: new Date("2023-04-12"),
       purchasePrice: new Prisma.Decimal(5998),
+      purchaseSource: "B&H",
+      purchaseReference: "BH-INV-2023-4419",
+      warrantyExpiresAt: new Date("2026-04-12"),
+      locationId: officeCameraShelf.id,
+      ownerName: "William Armstrong",
+      qrCodeValue: buildQrCodeValue("CAM-001"),
+      replacementValue: new Prisma.Decimal(5998),
       notes: "A-cam body with top handle and LCD loupe.",
     },
     {
@@ -101,10 +139,14 @@ async function main() {
       brand: "Leica",
       model: "Q2",
       serialNumber: "Q2-88320",
-      status: "active",
-      locationId: office.id,
+      conditionGrade: "good",
+      status: "available",
+      purchaseDate: new Date("2022-09-21"),
+      purchaseSource: "Leica Store SoHo",
+      purchaseReference: "LEICA-SOHO-220921",
+      locationId: officeCameraShelf.id,
       ownerName: "William Armstrong",
-      qrCodeValue: "/scan/CAM-002",
+      qrCodeValue: buildQrCodeValue("CAM-002"),
       replacementValue: new Prisma.Decimal(5795),
       purchasePrice: new Prisma.Decimal(5295),
     },
@@ -115,10 +157,12 @@ async function main() {
       brand: "ARRI",
       model: "SR2",
       serialNumber: "SR2-16-1934",
+      conditionGrade: "fair",
+      conditionNotes: "Operational but due for viewfinder service.",
       status: "in_repair",
       locationId: studioShelf.id,
       ownerName: "William Armstrong",
-      qrCodeValue: "/scan/CAM-003",
+      qrCodeValue: buildQrCodeValue("CAM-003"),
       replacementValue: new Prisma.Decimal(8500),
       notes: "Waiting on viewfinder service.",
     },
@@ -129,9 +173,10 @@ async function main() {
       brand: "Sony",
       model: "FE 24-70mm f/2.8 GM II",
       serialNumber: "SEL2470GM2-301",
-      status: "active",
-      locationId: office.id,
-      qrCodeValue: "/scan/LENS-002",
+      conditionGrade: "excellent",
+      status: "available",
+      locationId: officeCameraShelf.id,
+      qrCodeValue: buildQrCodeValue("LENS-002"),
       replacementValue: new Prisma.Decimal(2298),
     },
     {
@@ -140,9 +185,10 @@ async function main() {
       categoryId: lighting.id,
       brand: "Creamsource",
       model: "Vortex8",
-      status: "checked_out",
-      locationId: truck.id,
-      qrCodeValue: "/scan/LIGHT-003",
+      conditionGrade: "good",
+      status: "active",
+      locationId: truckLightingBay.id,
+      qrCodeValue: buildQrCodeValue("LIGHT-003"),
       replacementValue: new Prisma.Decimal(6499),
       notes: "On shoot truck with power distro.",
     },
@@ -152,9 +198,9 @@ async function main() {
       categoryId: lighting.id,
       brand: "Aputure",
       model: "600d Pro",
-      status: "active",
-      locationId: truck.id,
-      qrCodeValue: "/scan/LIGHT-004",
+      status: "available",
+      locationId: truckLightingBay.id,
+      qrCodeValue: buildQrCodeValue("LIGHT-004"),
       replacementValue: new Prisma.Decimal(1890),
     },
     {
@@ -162,20 +208,20 @@ async function main() {
       name: "C-Stand Turtle Base",
       categoryId: grip.id,
       brand: "Matthews",
-      status: "active",
+      status: "available",
       quantity: 4,
       locationId: truck.id,
-      qrCodeValue: "/scan/GRIP-001",
+      qrCodeValue: buildQrCodeValue("GRIP-001"),
       replacementValue: new Prisma.Decimal(250),
     },
     {
       assetId: "PROP-004",
       name: "4x4 Solid",
       categoryId: grip.id,
-      status: "active",
+      status: "available",
       quantity: 2,
       locationId: truck.id,
-      qrCodeValue: "/scan/PROP-004",
+      qrCodeValue: buildQrCodeValue("PROP-004"),
       replacementValue: new Prisma.Decimal(89),
     },
     {
@@ -183,10 +229,10 @@ async function main() {
       name: "V-Mount Battery 150Wh",
       categoryId: power.id,
       brand: "Core SWX",
-      status: "active",
+      status: "available",
       quantity: 6,
       locationId: truck.id,
-      qrCodeValue: "/scan/PWR-001",
+      qrCodeValue: buildQrCodeValue("PWR-001"),
       replacementValue: new Prisma.Decimal(379),
     },
     {
@@ -195,9 +241,9 @@ async function main() {
       categoryId: audio.id,
       brand: "Zoom",
       model: "F6",
-      status: "active",
+      status: "available",
       locationId: office.id,
-      qrCodeValue: "/scan/AUDIO-001",
+      qrCodeValue: buildQrCodeValue("AUDIO-001"),
       replacementValue: new Prisma.Decimal(699),
     },
     {
@@ -205,39 +251,39 @@ async function main() {
       name: "Tentacle Sync E",
       categoryId: audio.id,
       brand: "Tentacle",
-      status: "active",
+      status: "available",
       quantity: 3,
       locationId: office.id,
-      qrCodeValue: "/scan/AUDIO-002",
+      qrCodeValue: buildQrCodeValue("AUDIO-002"),
       replacementValue: new Prisma.Decimal(229),
     },
     {
       assetId: "TEXT-001",
       name: "Black Duvetyne Curtain",
       categoryId: textiles.id,
-      status: "active",
+      status: "available",
       quantity: 3,
       locationId: storageUnit.id,
-      qrCodeValue: "/scan/TEXT-001",
+      qrCodeValue: buildQrCodeValue("TEXT-001"),
       replacementValue: new Prisma.Decimal(140),
     },
     {
       assetId: "PROP-005",
       name: "Folding Director Chair",
       categoryId: props.id,
-      status: "active",
+      status: "available",
       quantity: 2,
       locationId: truck.id,
-      qrCodeValue: "/scan/PROP-005",
+      qrCodeValue: buildQrCodeValue("PROP-005"),
       replacementValue: new Prisma.Decimal(95),
     },
     {
       assetId: "PROP-006",
       name: "Prop Crate A",
       categoryId: props.id,
-      status: "active",
+      status: "available",
       locationId: studioShelf.id,
-      qrCodeValue: "/scan/PROP-006",
+      qrCodeValue: buildQrCodeValue("PROP-006"),
       replacementValue: new Prisma.Decimal(120),
     },
   ] as const;
@@ -258,11 +304,103 @@ async function main() {
         id: `${created.id}-created`,
         itemId: created.id,
         type: "created",
-        summary: `Item created: ${created.name}`,
+        summary: `Created ${created.assetId}`,
         details: "Seeded demo record",
+        statusTo: created.status,
+        locationId: created.locationId,
+        metadata: { source: "seed" },
       },
     });
   }
+
+  const documentaryKit = await prisma.kit.upsert({
+    where: { assetId: "KIT-001" },
+    update: {
+      name: "Documentary A-Cam Kit",
+      code: "KIT-DOC-A",
+      locationId: officeCameraShelf.id,
+      description: "Fast-turn documentary camera package.",
+      assetId: "KIT-001",
+      qrCodeValue: buildQrCodeValue("KIT-001"),
+      status: "available",
+    },
+    create: {
+      name: "Documentary A-Cam Kit",
+      assetId: "KIT-001",
+      code: "KIT-DOC-A",
+      locationId: officeCameraShelf.id,
+      description: "Fast-turn documentary camera package.",
+      notes: "Core owner-operated doc kit.",
+      qrCodeValue: buildQrCodeValue("KIT-001"),
+      status: "available",
+    },
+  });
+
+  const lightingKit = await prisma.kit.upsert({
+    where: { assetId: "KIT-002" },
+    update: {
+      name: "Truck Lighting Core",
+      code: "KIT-LIGHT-TRUCK",
+      locationId: truckLightingBay.id,
+      description: "Core lighting package that lives in the truck.",
+      assetId: "KIT-002",
+      qrCodeValue: buildQrCodeValue("KIT-002"),
+      status: "active",
+    },
+    create: {
+      name: "Truck Lighting Core",
+      assetId: "KIT-002",
+      code: "KIT-LIGHT-TRUCK",
+      locationId: truckLightingBay.id,
+      description: "Core lighting package that lives in the truck.",
+      qrCodeValue: buildQrCodeValue("KIT-002"),
+      status: "active",
+    },
+  });
+
+  const fx6 = await prisma.item.findUniqueOrThrow({ where: { assetId: "CAM-001" } });
+  const gmLens = await prisma.item.findUniqueOrThrow({ where: { assetId: "LENS-002" } });
+  const vortex = await prisma.item.findUniqueOrThrow({ where: { assetId: "LIGHT-003" } });
+  const aputure = await prisma.item.findUniqueOrThrow({ where: { assetId: "LIGHT-004" } });
+
+  for (const membership of [
+    { itemId: fx6.id, kitId: documentaryKit.id, quantity: 1, notes: "Primary body" },
+    { itemId: gmLens.id, kitId: documentaryKit.id, quantity: 1, notes: "Default zoom" },
+    { itemId: vortex.id, kitId: lightingKit.id, quantity: 1, notes: "Main source" },
+    { itemId: aputure.id, kitId: lightingKit.id, quantity: 1, notes: "Secondary daylight source" },
+  ]) {
+    await prisma.itemKit.upsert({
+      where: { itemId_kitId: { itemId: membership.itemId, kitId: membership.kitId } },
+      update: membership,
+      create: membership,
+    });
+  }
+
+  await prisma.kitHistoryEvent.upsert({
+    where: { id: `${documentaryKit.id}-created` },
+    update: {},
+    create: {
+      id: `${documentaryKit.id}-created`,
+      kitId: documentaryKit.id,
+      type: "created",
+      summary: `Created ${documentaryKit.assetId}`,
+      statusTo: documentaryKit.status,
+      metadata: { source: "seed" },
+    },
+  });
+
+  await prisma.kitHistoryEvent.upsert({
+    where: { id: `${lightingKit.id}-created` },
+    update: {},
+    create: {
+      id: `${lightingKit.id}-created`,
+      kitId: lightingKit.id,
+      type: "created",
+      summary: `Created ${lightingKit.assetId}`,
+      statusTo: lightingKit.status,
+      metadata: { source: "seed" },
+    },
+  });
 }
 
 main()

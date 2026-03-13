@@ -11,6 +11,7 @@ model Category {
   name      String   @unique
   slug      String   @unique
   prefix    String
+  description String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   items     Item[]
@@ -28,12 +29,16 @@ model Item {
   model            String?
   serialNumber     String?
   description      String?
-  condition        String?
-  status           ItemStatus         @default(active)
+  conditionGrade   ConditionGrade?
+  conditionNotes   String?
+  status           ItemStatus         @default(available)
   purchaseDate     DateTime?
   purchasePrice    Decimal?           @db.Decimal(10, 2)
   replacementValue Decimal?           @db.Decimal(10, 2)
   currency         String             @default("USD")
+  purchaseSource   String?
+  purchaseReference String?
+  warrantyExpiresAt DateTime?
   locationId       String?
   notes            String?
   ownerName        String?
@@ -47,11 +52,20 @@ model Item {
   historyEvents    ItemHistoryEvent[]
   kits             ItemKit[]
   tags             ItemTag[]
+  kitVerificationItems KitVerificationItem[]
+  packageContents  ItemContent[]        @relation("ItemContents")
+  checklistContents ItemChecklistContent[]
+  containedIn      ItemContent[]        @relation("ItemContainedIn")
+
+  @@index([status, createdAt])
+  @@index([categoryId, status])
+  @@index([locationId, status])
 }
 
 model Tag {
   id        String   @id @default(cuid())
   name      String   @unique
+  slug      String   @unique
   createdAt DateTime @default(now())
   items     ItemTag[]
 }
@@ -66,69 +80,180 @@ model ItemTag {
 }
 
 model Attachment {
-  id        String         @id @default(cuid())
-  itemId    String
-  type      AttachmentType
-  fileName  String
-  fileUrl   String
-  fileSize  Int?
-  mimeType  String?
-  notes     String?
-  createdAt DateTime       @default(now())
-  item      Item           @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  id              String                    @id @default(cuid())
+  itemId          String
+  type            AttachmentType
+  title           String?
+  fileName        String
+  fileUrl         String
+  storageProvider AttachmentStorageProvider @default(supabase)
+  storageBucket   String?
+  storagePath     String?
+  fileSize        Int?
+  mimeType        String?
+  notes           String?
+  createdAt       DateTime                  @default(now())
+  item            Item                      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId, type])
 }
 
 model Kit {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  location    String?
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  items       ItemKit[]
+  id                   String                  @id @default(cuid())
+  name                 String
+  assetId              String                  @unique
+  code                 String?                 @unique
+  description          String?
+  status               KitStatus               @default(available)
+  locationId           String?
+  notes                String?
+  qrCodeValue          String                  @unique
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  location             Location?               @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  items                ItemKit[]
+  historyEvents        KitHistoryEvent[]
+  verificationSessions KitVerificationSession[]
+
+  @@unique([name, locationId])
 }
 
 model ItemKit {
-  itemId String
-  kitId  String
-  item   Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  kit    Kit  @relation(fields: [kitId], references: [id], onDelete: Cascade)
+  itemId    String
+  kitId     String
+  quantity  Int      @default(1)
+  notes     String?
+  createdAt DateTime @default(now())
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  kit       Kit      @relation(fields: [kitId], references: [id], onDelete: Cascade)
 
   @@id([itemId, kitId])
 }
 
+model ItemContent {
+  parentItemId String
+  childItemId  String
+  quantity     Int      @default(1)
+  notes        String?
+  createdAt    DateTime @default(now())
+  parentItem   Item     @relation("ItemContents", fields: [parentItemId], references: [id], onDelete: Cascade)
+  childItem    Item     @relation("ItemContainedIn", fields: [childItemId], references: [id], onDelete: Cascade)
+
+  @@id([parentItemId, childItemId])
+}
+
+model ItemChecklistContent {
+  id           String   @id @default(cuid())
+  parentItemId String
+  label        String
+  quantity     Int      @default(1)
+  notes        String?
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  parentItem   Item     @relation(fields: [parentItemId], references: [id], onDelete: Cascade)
+
+  @@index([parentItemId, sortOrder, createdAt])
+}
+
 model ItemHistoryEvent {
-  id        String           @id @default(cuid())
-  itemId    String
-  type      ItemHistoryType
-  timestamp DateTime         @default(now())
-  summary   String
-  details   String?
-  item      Item             @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  id         String           @id @default(cuid())
+  itemId     String
+  type       ItemHistoryType
+  timestamp  DateTime         @default(now())
+  summary    String
+  details    String?
+  note       String?
+  statusFrom ItemStatus?
+  statusTo   ItemStatus?
+  locationId String?
+  metadata   Json?
+  item       Item             @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  location   Location?        @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  @@index([itemId, timestamp])
+}
+
+model KitHistoryEvent {
+  id         String         @id @default(cuid())
+  kitId      String
+  type       KitHistoryType
+  timestamp  DateTime       @default(now())
+  summary    String
+  details    String?
+  note       String?
+  statusFrom KitStatus?
+  statusTo   KitStatus?
+  metadata   Json?
+  kit        Kit            @relation(fields: [kitId], references: [id], onDelete: Cascade)
+
+  @@index([kitId, timestamp])
+}
+
+model KitVerificationSession {
+  id          String                    @id @default(cuid())
+  kitId        String
+  status       KitVerificationStatus    @default(in_progress)
+  startedAt    DateTime                 @default(now())
+  completedAt  DateTime?
+  startedNote  String?
+  completionNote String?
+  kit          Kit                      @relation(fields: [kitId], references: [id], onDelete: Cascade)
+  items        KitVerificationItem[]
+}
+
+model KitVerificationItem {
+  sessionId    String
+  itemId       String
+  expected     Boolean                  @default(true)
+  verifiedAt   DateTime?
+  isPresent    Boolean?
+  note         String?
+  session      KitVerificationSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  item         Item                     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@id([sessionId, itemId])
 }
 
 model Location {
   id               String     @id @default(cuid())
+  code             String?    @unique
   name             String
   description      String?
   parentLocationId String?
+  sortOrder        Int        @default(0)
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
   parentLocation   Location?  @relation("LocationTree", fields: [parentLocationId], references: [id], onDelete: SetNull)
   childLocations   Location[] @relation("LocationTree")
   items            Item[]
+  kits             Kit[]
+  historyEvents    ItemHistoryEvent[]
 
   @@unique([name, parentLocationId])
 }
 
+enum ConditionGrade {
+  excellent
+  good
+  fair
+  poor
+  damaged
+}
+
 enum ItemStatus {
+  available
   active
-  checked_out
   in_repair
   missing
   stolen
   sold
+  retired
+}
+
+enum KitStatus {
+  available
+  active
+  incomplete
   retired
 }
 
@@ -139,6 +264,12 @@ enum AttachmentType {
   manual
   warranty
   misc
+}
+
+enum AttachmentStorageProvider {
+  supabase
+  external
+  local_placeholder
 }
 
 enum ItemHistoryType {
@@ -152,4 +283,20 @@ enum ItemHistoryType {
   stolen
   sold
   note
+}
+
+enum KitHistoryType {
+  created
+  updated
+  checked_out
+  return_started
+  return_completed
+  incomplete
+  note
+}
+
+enum KitVerificationStatus {
+  in_progress
+  completed
+  incomplete
 }
