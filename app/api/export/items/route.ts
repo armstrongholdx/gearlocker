@@ -52,15 +52,15 @@ export async function GET() {
       item.ownerName ?? "",
       item.purchaseSource ?? "",
       item.purchaseReference ?? "",
-      item.tags.map((entry) => entry.tag.name).join(" | "),
-      item.kits.map((entry) => entry.kit.name).join(" | "),
+      item.tags.map((entry: any) => entry.tag.name).join(" | "),
+      item.kits.map((entry: any) => entry.kit.name).join(" | "),
       String(item.attachments.length),
       `/items/${encodeURIComponent(item.assetId)}`,
     ]),
   ];
 
   const csv = rows
-    .map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","))
+    .map((row: any[]) => row.map((value: any) => `"${String(value).replaceAll('"', '""')}"`).join(","))
     .join("\n");
 
   return new NextResponse(csv, {
