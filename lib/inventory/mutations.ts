@@ -2,6 +2,7 @@ import { ItemHistoryType, ItemStatus, KitHistoryType, KitStatus, KitVerification
 
 import { prisma } from "@/lib/prisma";
 import { buildQrCodeValue } from "@/lib/paths";
+import { getWorkspaceContext } from "@/lib/workspace";
 import {
   addPackageChecklistContentSchema,
   addPackageContentSchema,
@@ -16,6 +17,7 @@ import {
   removePackageContentSchema,
   updateItemSchema,
   verifyKitItemSchema,
+  verifyKitItemByAssetIdSchema,
 } from "@/lib/inventory/validators";
 
 function parseList(value?: string) {
@@ -107,10 +109,12 @@ export async function createItemRecord(formData: FormData) {
   const parsed = createItemSchema.parse(formDataToItemPayload(formData));
   const data = await buildItemWriteData(parsed);
   const { tagConnectData, categoryId, locationId, ...itemData } = data;
+  const workspace = await getWorkspaceContext();
 
   const item = await prisma.item.create({
     data: {
       ...itemData,
+      ...(workspace.currentWorkspace?.id ? { workspace: { connect: { id: workspace.currentWorkspace.id } } } : {}),
       ...(categoryId ? { category: { connect: { id: categoryId } } } : {}),
       ...(locationId ? { location: { connect: { id: locationId } } } : {}),
       tags: tagConnectData.length ? { create: tagConnectData } : undefined,
@@ -124,6 +128,7 @@ export async function createItemRecord(formData: FormData) {
       summary: `Created ${item.assetId}`,
       details: "Item was created from the inventory form.",
       statusTo: item.status,
+      workspaceId: item.workspaceId,
       locationId: item.locationId,
       note: parsed.notes || null,
       metadata: { source: "createItemRecord" },
@@ -208,6 +213,25 @@ export async function transitionItemStatus(formData: FormData) {
   return updated;
 }
 
+export async function transitionItemByAssetId({
+  assetId,
+  nextStatus,
+  note,
+  locationId,
+}: {
+  assetId: string;
+  nextStatus: ItemStatus;
+  note?: string | null;
+  locationId?: string | null;
+}) {
+  const formData = new FormData();
+  formData.set("assetId", assetId);
+  formData.set("nextStatus", nextStatus);
+  if (note) formData.set("note", note);
+  if (locationId) formData.set("locationId", locationId);
+  return transitionItemStatus(formData);
+}
+
 export async function moveItemToLocation(formData: FormData) {
   const parsed = moveItemSchema.parse({
     assetId: formData.get("assetId"),
@@ -247,6 +271,22 @@ export async function moveItemToLocation(formData: FormData) {
   return updated;
 }
 
+export async function moveItemToLocationByAssetId({
+  assetId,
+  locationId,
+  note,
+}: {
+  assetId: string;
+  locationId?: string | null;
+  note?: string | null;
+}) {
+  const formData = new FormData();
+  formData.set("assetId", assetId);
+  if (locationId) formData.set("locationId", locationId);
+  if (note) formData.set("note", note);
+  return moveItemToLocation(formData);
+}
+
 function statusToHistoryType(status: ItemStatus): ItemHistoryType {
   if (status === ItemStatus.active) return ItemHistoryType.checked_out;
   if (status === ItemStatus.available) return ItemHistoryType.checked_in;
@@ -268,13 +308,16 @@ export async function createKitRecord(formData: FormData) {
     assetIds: formData.get("assetIds"),
   });
 
+  const workspace = await getWorkspaceContext();
+
   const kit = await prisma.kit.create({
     data: {
+      ...(workspace.currentWorkspace?.id ? { workspace: { connect: { id: workspace.currentWorkspace.id } } } : {}),
       name: parsed.name,
       assetId: parsed.assetId,
       code: parsed.code || null,
       description: parsed.description || null,
-      locationId: parsed.locationId || null,
+      ...(parsed.locationId ? { location: { connect: { id: parsed.locationId } } } : {}),
       notes: parsed.notes || null,
       status: KitStatus.available,
       qrCodeValue: buildQrCodeValue(parsed.assetId),
@@ -287,6 +330,7 @@ export async function createKitRecord(formData: FormData) {
       type: KitHistoryType.created,
       summary: `Created ${kit.assetId}`,
       details: "Kit was created from the kits page.",
+      workspaceId: kit.workspaceId,
       statusTo: kit.status,
       metadata: { source: "createKitRecord" },
     },
@@ -525,6 +569,22 @@ export async function setKitStatus(formData: FormData) {
   return updated;
 }
 
+export async function setKitStatusByAssetId({
+  assetId,
+  nextStatus,
+  note,
+}: {
+  assetId: string;
+  nextStatus: KitStatus;
+  note?: string | null;
+}) {
+  const formData = new FormData();
+  formData.set("assetId", assetId);
+  formData.set("nextStatus", nextStatus);
+  if (note) formData.set("note", note);
+  return setKitStatus(formData);
+}
+
 export async function startKitReturnVerification(assetId: string, note?: string) {
   const kit = await prisma.kit.findUniqueOrThrow({
     where: { assetId },
@@ -545,7 +605,8 @@ export async function startKitReturnVerification(assetId: string, note?: string)
 
   const session = await prisma.kitVerificationSession.create({
     data: {
-      kitId: kit.id,
+      kit: { connect: { id: kit.id } },
+      ...(kit.workspaceId ? { workspace: { connect: { id: kit.workspaceId } } } : {}),
       startedNote: note || null,
       items: {
         create: kit.items.map((entry) => ({
@@ -568,6 +629,7 @@ export async function startKitReturnVerification(assetId: string, note?: string)
       type: KitHistoryType.return_started,
       summary: `${kit.assetId} return verification started`,
       note: note || null,
+      workspaceId: kit.workspaceId,
       statusFrom: kit.status,
       statusTo: KitStatus.incomplete,
       metadata: { source: "startKitReturnVerification", sessionId: session.id },
@@ -690,6 +752,63 @@ export async function verifyKitReturnItem(formData: FormData) {
   return { sessionId: session.id };
 }
 
+export async function verifyKitReturnItemByAssetId(formData: FormData) {
+  const parsed = verifyKitItemByAssetIdSchema.parse({
+    assetId: formData.get("assetId"),
+    itemAssetId: formData.get("itemAssetId"),
+    isPresent: formData.get("isPresent"),
+    note: formData.get("note"),
+  });
+
+  const kit = await prisma.kit.findUniqueOrThrow({
+    where: { assetId: parsed.assetId },
+    include: {
+      verificationSessions: {
+        where: { status: KitVerificationStatus.in_progress },
+        orderBy: { startedAt: "desc" },
+        take: 1,
+      },
+      items: {
+        include: { item: true },
+      },
+    },
+  });
+
+  const membership = kit.items.find((entry) => entry.item.assetId === parsed.itemAssetId);
+  if (!membership) {
+    throw new Error("Item does not belong to this kit.");
+  }
+
+  const forwarded = new FormData();
+  forwarded.set("assetId", parsed.assetId);
+  forwarded.set("itemId", membership.itemId);
+  forwarded.set("isPresent", parsed.isPresent);
+  if (parsed.note) {
+    forwarded.set("note", parsed.note);
+  }
+
+  return verifyKitReturnItem(forwarded);
+}
+
+export async function verifyKitReturnItemByAssetIdInput({
+  assetId,
+  itemAssetId,
+  isPresent,
+  note,
+}: {
+  assetId: string;
+  itemAssetId: string;
+  isPresent?: "present" | "missing";
+  note?: string | null;
+}) {
+  const formData = new FormData();
+  formData.set("assetId", assetId);
+  formData.set("itemAssetId", itemAssetId);
+  formData.set("isPresent", isPresent ?? "present");
+  if (note) formData.set("note", note);
+  return verifyKitReturnItemByAssetId(formData);
+}
+
 export async function createLocationRecord(formData: FormData) {
   const parsed = createLocationSchema.parse({
     name: formData.get("name"),
@@ -698,12 +817,15 @@ export async function createLocationRecord(formData: FormData) {
     parentLocationId: formData.get("parentLocationId"),
   });
 
+  const workspace = await getWorkspaceContext();
+
   return prisma.location.create({
     data: {
+      ...(workspace.currentWorkspace?.id ? { workspace: { connect: { id: workspace.currentWorkspace.id } } } : {}),
       name: parsed.name,
       code: parsed.code || null,
       description: parsed.description || null,
-      parentLocationId: parsed.parentLocationId || null,
+      ...(parsed.parentLocationId ? { parentLocation: { connect: { id: parsed.parentLocationId } } } : {}),
     },
   });
 }

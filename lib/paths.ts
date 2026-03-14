@@ -22,6 +22,10 @@ export function itemLabelPath(assetId: string) {
   return `/labels/${encodeURIComponent(assetId)}`;
 }
 
+export function kitLabelPath(assetId: string) {
+  return `/labels/kits/${encodeURIComponent(assetId)}`;
+}
+
 export function itemScanPath(assetId: string) {
   return `/scan/${encodeURIComponent(assetId)}`;
 }

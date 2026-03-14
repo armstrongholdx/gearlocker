@@ -2,21 +2,26 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Boxes, House, MapPinned, PackagePlus, QrCode, ScanSearch, Settings2 } from "lucide-react";
+import { AlertTriangle, Boxes, FolderCog, House, MapPinned, PackagePlus, QrCode, ScanSearch, Settings2, ShieldCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 const operationalNavItems = [
   { href: "/", label: "Dashboard", icon: House, caption: "Command center" },
-  { href: "/inventory", label: "Inventory", icon: Boxes, caption: "Primary operating surface" },
-  { href: "/kits", label: "Kits", icon: QrCode, caption: "Packages and return checks" },
+  { href: "/inventory", label: "Inventory", icon: Boxes, caption: "Gear list" },
+  { href: "/kits", label: "Kits", icon: QrCode, caption: "Returns and readiness" },
   { href: "/locations", label: "Locations", icon: MapPinned, caption: "Storage map" },
-  { href: "/scan", label: "Scan", icon: ScanSearch, caption: "Action-first workflow" },
+  { href: "/scan", label: "Scan", icon: ScanSearch, caption: "Scan gear" },
 ];
 
 const setupNavItems = [
   { href: "/items/new", label: "Add Item", icon: PackagePlus, caption: "Create a record" },
+];
+
+const adminNavItems = [
+  { href: "/manage", label: "Manage", icon: FolderCog, caption: "Categories and system controls" },
+  { href: "/manage/workspace", label: "Workspace", icon: ShieldCheck, caption: "Auth and workspace foundations" },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -24,9 +29,21 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+type AppShellProps = {
+  children: React.ReactNode;
+  alerts: {
+    activeReturnSessions: Array<{
+      id: string;
+      kit: { assetId: string; name: string };
+    }>;
+    incompleteKits: number;
+  };
+};
+
+export function AppShell({ children, alerts }: AppShellProps) {
   const pathname = usePathname();
-  const activeItem = [...operationalNavItems, ...setupNavItems].find((item) => isActive(pathname, item.href)) ?? operationalNavItems[0];
+  const activeItem = [...operationalNavItems, ...setupNavItems, ...adminNavItems].find((item) => isActive(pathname, item.href)) ?? operationalNavItems[0];
+  const activeReturn = alerts.activeReturnSessions[0] ?? null;
 
   return (
     <div className="min-h-screen">
@@ -44,18 +61,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <p className="text-sm text-slate-400">Production inventory</p>
               </div>
             </div>
-            <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
-              Asset IDs drive labels, scan actions, and navigation. Use the dashboard as the daily command center.
-            </div>
+            {activeReturn ? (
+              <Link href={`/kits/${encodeURIComponent(activeReturn.kit.assetId)}/return`} className="mt-5 block rounded-2xl border border-amber-300/30 bg-amber-400/10 p-4 text-sm text-amber-100 shadow-[0_0_0_1px_rgba(251,191,36,0.12)]">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+                  <div>
+                    <div className="font-semibold">Return in progress</div>
+                    <div className="mt-1 text-amber-100/80">{activeReturn.kit.assetId} still needs item verification.</div>
+                  </div>
+                </div>
+              </Link>
+            ) : null}
           </div>
 
           <div className="mt-6 space-y-6">
             <NavGroup title="Operate" items={operationalNavItems} pathname={pathname} />
             <NavGroup title="Create" items={setupNavItems} pathname={pathname} />
+            <NavGroup title="Manage" items={adminNavItems} pathname={pathname} />
           </div>
 
           <div className="mt-auto rounded-[1.5rem] border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
-            Desktop-first management UI with scan-oriented shortcuts and mobile-safe navigation.
+            {alerts.incompleteKits > 0 ? `${alerts.incompleteKits} kit${alerts.incompleteKits === 1 ? "" : "s"} need attention.` : "Ready for scanning, returns, and storage work."}
           </div>
         </aside>
 
@@ -68,19 +94,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <div className="text-sm text-muted-foreground">{activeItem.caption}</div>
               </div>
               <div className="hidden items-center gap-2 md:flex">
-                <div className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs text-slate-600">
-                  Asset ID-first operations
-                </div>
-                <Link href="/scan" className="rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-medium hover:bg-white">
-                  Scan action
-                </Link>
-                <Link href="/items/new" className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-[0_12px_32px_rgba(15,23,42,0.16)]">
-                  Add item
+                <Link
+                  href="/scan"
+                  className={cn(
+                    "rounded-full px-5 py-2.5 text-sm font-semibold shadow-[0_12px_32px_rgba(15,23,42,0.16)] transition",
+                    activeReturn ? "bg-amber-400 text-slate-950 ring-2 ring-amber-200/70" : "bg-primary text-primary-foreground",
+                  )}
+                >
+                  SCAN
                 </Link>
               </div>
             </div>
+            {activeReturn ? (
+              <div className="border-t border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:px-6 lg:px-8">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span>Finish returning {activeReturn.kit.assetId} before moving on to other scans.</span>
+                  </div>
+                  <Link href={`/kits/${encodeURIComponent(activeReturn.kit.assetId)}/return`} className="font-medium underline underline-offset-4">
+                    Open return
+                  </Link>
+                </div>
+              </div>
+            ) : null}
             <div className="scroll-fade flex gap-2 overflow-x-auto px-4 pb-4 sm:px-6 lg:hidden">
-              {[...operationalNavItems, ...setupNavItems].map(({ href, label, icon: Icon }) => {
+              {[...operationalNavItems, ...setupNavItems, ...adminNavItems].map(({ href, label, icon: Icon }) => {
                 const active = isActive(pathname, href);
                 return (
                   <Link

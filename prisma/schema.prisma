@@ -8,17 +8,20 @@ datasource db {
 
 model Category {
   id        String   @id @default(cuid())
+  workspaceId String?
   name      String   @unique
   slug      String   @unique
   prefix    String
   description String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   items     Item[]
 }
 
 model Item {
   id               String             @id @default(cuid())
+  workspaceId      String?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   assetId          String             @unique
@@ -46,6 +49,7 @@ model Item {
   isConsumable     Boolean            @default(false)
   quantity         Int                @default(1)
   imageCoverUrl    String?
+  workspace        Workspace?         @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   category         Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   location         Location?          @relation(fields: [locationId], references: [id], onDelete: SetNull)
   attachments      Attachment[]
@@ -64,9 +68,11 @@ model Item {
 
 model Tag {
   id        String   @id @default(cuid())
+  workspaceId String?
   name      String   @unique
   slug      String   @unique
   createdAt DateTime @default(now())
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   items     ItemTag[]
 }
 
@@ -81,6 +87,7 @@ model ItemTag {
 
 model Attachment {
   id              String                    @id @default(cuid())
+  workspaceId     String?
   itemId          String
   type            AttachmentType
   title           String?
@@ -93,6 +100,7 @@ model Attachment {
   mimeType        String?
   notes           String?
   createdAt       DateTime                  @default(now())
+  workspace       Workspace?                @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   item            Item                      @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@index([itemId, type])
@@ -100,6 +108,7 @@ model Attachment {
 
 model Kit {
   id                   String                  @id @default(cuid())
+  workspaceId          String?
   name                 String
   assetId              String                  @unique
   code                 String?                 @unique
@@ -110,6 +119,7 @@ model Kit {
   qrCodeValue          String                  @unique
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
+  workspace            Workspace?              @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   location             Location?               @relation(fields: [locationId], references: [id], onDelete: SetNull)
   items                ItemKit[]
   historyEvents        KitHistoryEvent[]
@@ -157,6 +167,7 @@ model ItemChecklistContent {
 
 model ItemHistoryEvent {
   id         String           @id @default(cuid())
+  workspaceId String?
   itemId     String
   type       ItemHistoryType
   timestamp  DateTime         @default(now())
@@ -167,6 +178,7 @@ model ItemHistoryEvent {
   statusTo   ItemStatus?
   locationId String?
   metadata   Json?
+  workspace  Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   item       Item             @relation(fields: [itemId], references: [id], onDelete: Cascade)
   location   Location?        @relation(fields: [locationId], references: [id], onDelete: SetNull)
 
@@ -175,6 +187,7 @@ model ItemHistoryEvent {
 
 model KitHistoryEvent {
   id         String         @id @default(cuid())
+  workspaceId String?
   kitId      String
   type       KitHistoryType
   timestamp  DateTime       @default(now())
@@ -184,6 +197,7 @@ model KitHistoryEvent {
   statusFrom KitStatus?
   statusTo   KitStatus?
   metadata   Json?
+  workspace  Workspace?     @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   kit        Kit            @relation(fields: [kitId], references: [id], onDelete: Cascade)
 
   @@index([kitId, timestamp])
@@ -191,12 +205,14 @@ model KitHistoryEvent {
 
 model KitVerificationSession {
   id          String                    @id @default(cuid())
+  workspaceId String?
   kitId        String
   status       KitVerificationStatus    @default(in_progress)
   startedAt    DateTime                 @default(now())
   completedAt  DateTime?
   startedNote  String?
   completionNote String?
+  workspace    Workspace?               @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   kit          Kit                      @relation(fields: [kitId], references: [id], onDelete: Cascade)
   items        KitVerificationItem[]
 }
@@ -216,6 +232,7 @@ model KitVerificationItem {
 
 model Location {
   id               String     @id @default(cuid())
+  workspaceId      String?
   code             String?    @unique
   name             String
   description      String?
@@ -223,6 +240,7 @@ model Location {
   sortOrder        Int        @default(0)
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
+  workspace        Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   parentLocation   Location?  @relation("LocationTree", fields: [parentLocationId], references: [id], onDelete: SetNull)
   childLocations   Location[] @relation("LocationTree")
   items            Item[]
@@ -230,6 +248,49 @@ model Location {
   historyEvents    ItemHistoryEvent[]
 
   @@unique([name, parentLocationId])
+}
+
+model AppUser {
+  id             String                @id @default(cuid())
+  supabaseUserId String                @unique
+  email          String?
+  displayName    String?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  memberships    WorkspaceMembership[]
+  workspacesOwned Workspace[]          @relation("WorkspaceOwner")
+}
+
+model Workspace {
+  id               String                @id @default(cuid())
+  name             String
+  slug             String                @unique
+  description      String?
+  ownerId          String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  owner            AppUser?              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  memberships      WorkspaceMembership[]
+  categories       Category[]
+  tags             Tag[]
+  items            Item[]
+  attachments      Attachment[]
+  kits             Kit[]
+  locations        Location[]
+  itemHistoryEvents ItemHistoryEvent[]
+  kitHistoryEvents KitHistoryEvent[]
+  verificationSessions KitVerificationSession[]
+}
+
+model WorkspaceMembership {
+  workspaceId String
+  userId      String
+  role        WorkspaceRole          @default(owner)
+  createdAt   DateTime               @default(now())
+  workspace   Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        AppUser                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, userId])
 }
 
 enum ConditionGrade {
@@ -299,4 +360,11 @@ enum KitVerificationStatus {
   in_progress
   completed
   incomplete
+}
+
+enum WorkspaceRole {
+  owner
+  admin
+  member
+  viewer
 }

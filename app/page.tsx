@@ -1,70 +1,78 @@
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, Boxes, MapPinned, PackagePlus, QrCode, ScanSearch, Warehouse } from "lucide-react";
+import { AlertTriangle, ArrowRight, ScanSearch, Wrench } from "lucide-react";
 import type { ComponentType } from "react";
 
+import { AutoRefresh } from "@/components/realtime/auto-refresh";
 import { StatusBadge } from "@/components/inventory/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate } from "@/lib/format";
 import { getDashboardSummary } from "@/lib/inventory/queries";
 import { itemDetailPath } from "@/lib/paths";
+import { cn } from "@/lib/utils";
+import { getWorkspaceContext } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const { totalItems, categories, statuses, recentItems, recentHistory, totalKits, totalLocations, activeKits } =
+  const { totalItems, categories, statuses, recentItems, recentHistory, totalKits, totalLocations, activeKits, incompleteKits } =
     await getDashboardSummary();
-  const availableCount = statuses.find((entry) => entry.status === "available")?._count.status ?? 0;
+  const workspaceContext = await getWorkspaceContext();
   const activeCount = statuses.find((entry) => entry.status === "active")?._count.status ?? 0;
   const repairCount = statuses.find((entry) => entry.status === "in_repair")?._count.status ?? 0;
+  const missingCount = statuses.find((entry) => entry.status === "missing")?._count.status ?? 0;
 
   return (
     <div className="space-y-8">
+      <AutoRefresh intervalMs={30000} tables={["Item", "Kit", "KitVerificationSession", "ItemHistoryEvent", "KitHistoryEvent"]} />
       <section className="grid gap-4 xl:grid-cols-[1.55fr_1fr]">
         <Card>
           <CardHeader className="pb-4">
             <CardDescription>Dashboard</CardDescription>
-            <CardTitle className="text-4xl leading-tight">Production inventory command center</CardTitle>
+            <CardTitle className="text-4xl leading-tight">Gear status at a glance</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid gap-4 md:grid-cols-4">
-              <MetricCard label="Tracked items" value={String(totalItems)} icon={Boxes} tone="dark" />
-              <MetricCard label="Available" value={String(availableCount)} icon={MapPinned} />
-              <MetricCard label="Active" value={String(activeCount)} icon={ScanSearch} />
-              <MetricCard label="Active kits" value={String(activeKits)} icon={QrCode} />
+              <MetricCard href="/inventory?status=active" label="Active items" value={String(activeCount)} icon={ScanSearch} tone="active" detail="Out on a job or deployed" />
+              {repairCount > 0 ? <MetricCard href="/inventory?status=in_repair" label="Needs repair" value={String(repairCount)} icon={Wrench} tone="repair" detail="Hold for service" /> : null}
+              {missingCount > 0 ? <MetricCard href="/inventory?status=missing" label="Missing items" value={String(missingCount)} icon={AlertTriangle} tone="missing" detail="Needs follow-up" /> : null}
+              {incompleteKits > 0 ? <MetricCard href="/kits" label="Incomplete kits" value={String(incompleteKits)} icon={AlertTriangle} tone="incomplete" detail="Return still pending" /> : null}
             </div>
             <div className="grid gap-4 md:grid-cols-[1.25fr_0.75fr]">
               <div className="rounded-[1.35rem] border border-slate-200 bg-slate-950 p-6 text-white">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Operations</div>
-                    <div className="mt-2 text-2xl font-semibold">Run prep, deploy, and returns from one place</div>
-                    <p className="mt-3 max-w-xl text-sm text-slate-300">
-                      Inventory is the main operating surface. Kits and scan flows support repeatable packages and fast field actions.
-                    </p>
-                  </div>
-                  <div className="hidden rounded-2xl border border-white/10 bg-white/5 p-3 lg:block">
-                    <PackagePlus className="h-7 w-7 text-accent" />
+                    <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Today</div>
+                    <div className="mt-2 text-2xl font-semibold">Scan, move, and return gear quickly</div>
                   </div>
                 </div>
                 <div className="mt-6 grid gap-3 md:grid-cols-3">
-                  <QuickActionCard href="/inventory?status=active" title="Active gear" body="Review deployed gear and what is out right now." />
-                  <QuickActionCard href="/kits" title="Kit readiness" body="Check package completeness and return status." />
-                  <QuickActionCard href="/scan" title="Scan actions" body="Jump into action-first mobile and field workflows." />
+                  <QuickActionCard href="/inventory?status=active" title="Active gear" body="See what is out right now." />
+                  <QuickActionCard href="/kits" title="Return kits" body="Find kits that still need item checks." />
+                  <QuickActionCard href="/scan" title="Scan gear" body="Open the camera and act fast." />
                 </div>
                 <div className="mt-5 flex flex-wrap gap-3">
-                  <Button variant="outline" asChild className="border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
-                    <Link href="/inventory">Open inventory</Link>
+                  <Button asChild className="bg-accent text-slate-950 hover:bg-accent/90">
+                    <Link href="/scan">Scan</Link>
                   </Button>
-                  <Button asChild>
-                    <Link href="/items/new">Add item</Link>
+                  <Button variant="outline" asChild className="border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+                    <Link href="/inventory">Inventory</Link>
+                  </Button>
+                  <Button variant="outline" asChild className="border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+                    <Link href="/kits">Kits</Link>
                   </Button>
                 </div>
               </div>
               <div className="grid gap-4">
-                <MiniPanel title="Kits" value={String(totalKits)} description="Scannable packages and completeness checks" />
-                <MiniPanel title="Locations" value={String(totalLocations)} description="Nested storage paths and movement history" />
-                <MiniPanel title="Needs attention" value={String(repairCount)} description="Items currently marked in repair" />
+                <MiniPanel title="Inventory" value={String(totalItems)} description="Tracked gear records" />
+                <MiniPanel title="Kits" value={String(totalKits)} description="Ready to scan and return" />
+                <MiniPanel title="Locations" value={String(totalLocations)} description="Storage paths in use" />
+                <MiniPanel title="Active kits" value={String(activeKits)} description="Currently deployed" />
+                <MiniPanel
+                  title="Workspace"
+                  value={workspaceContext.currentWorkspace?.name ?? "Solo"}
+                  description={workspaceContext.authUser?.email ?? "Current setup"}
+                />
               </div>
             </div>
           </CardContent>
@@ -84,9 +92,6 @@ export default async function DashboardPage() {
                 </div>
               </div>
             ))}
-            <div className="rounded-xl border border-dashed border-slate-300 bg-secondary/50 p-4 text-sm text-muted-foreground">
-              Asset IDs remain the public identifier used in labels, scan resolution, exports, and URLs. Internal IDs stay hidden.
-            </div>
           </CardContent>
         </Card>
       </section>
@@ -166,19 +171,22 @@ export default async function DashboardPage() {
       <section className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardDescription>Entry points</CardDescription>
-            <CardTitle>Jump into the right workflow</CardTitle>
+            <CardDescription>Go to</CardDescription>
+            <CardTitle>Start where the work is</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 md:grid-cols-3">
-            <QuickLink href="/inventory" title="Inventory" body="Search, filter, inspect, and act on gear records quickly." />
-            <QuickLink href="/kits" title="Kits" body="Track repeatable packages, readiness, and return workflows." />
-            <QuickLink href="/locations" title="Locations" body="Use the storage map to understand where gear actually lives." />
+            <QuickLink href="/inventory" title="Inventory" body="Search and act on gear." />
+            <QuickLink href="/kits" title="Kits" body="Check readiness and returns." />
+            <QuickLink href="/locations" title="Locations" body="See where gear lives." />
+            <QuickLink href="/manage" title="Manage" body="Categories and setup." />
+            <QuickLink href="/manage/workspace" title="Workspace" body="Team and access." />
+            <QuickLink href="/auth" title="Access" body="Sign in and out." />
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardDescription>Operational note</CardDescription>
-            <CardTitle>Status semantics</CardTitle>
+            <CardDescription>At a glance</CardDescription>
+            <CardTitle>Status guide</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <p>
@@ -188,12 +196,6 @@ export default async function DashboardPage() {
               <span className="font-semibold text-foreground">Active</span> means deployed, on truck, or out on a job.
             </p>
             <p>Kits can move as units, but returns still require item-level verification.</p>
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-4 w-4" />
-                <span>Operational actions should generally start from Inventory, Kits, or Scan. Creation remains secondary.</span>
-              </div>
-            </div>
           </CardContent>
         </Card>
       </section>
@@ -206,21 +208,43 @@ function MetricCard({
   value,
   icon: Icon,
   tone = "light",
+  href,
+  detail,
 }: {
   label: string;
   value: string;
   icon: ComponentType<{ className?: string }>;
-  tone?: "light" | "dark";
+  tone?: "light" | "dark" | "active" | "repair" | "missing" | "incomplete";
+  href?: string;
+  detail?: string;
 }) {
-  return (
-    <div className={tone === "dark" ? "rounded-[1.2rem] bg-slate-950 p-4 text-white" : "rounded-[1.2rem] border border-slate-200 bg-white/75 p-4"}>
-      <div className="flex items-center justify-between">
-        <div className={tone === "dark" ? "text-sm text-slate-300" : "text-sm text-muted-foreground"}>{label}</div>
-        <Icon className={tone === "dark" ? "h-4 w-4 text-accent" : "h-4 w-4 text-slate-500"} />
+  const toneClass =
+    tone === "dark"
+      ? "rounded-[1.2rem] bg-slate-950 p-4 text-white"
+      : tone === "active"
+        ? "rounded-[1.2rem] border border-emerald-300 bg-[linear-gradient(180deg,rgba(236,253,245,1),rgba(209,250,229,0.84))] p-4 text-emerald-950 shadow-[0_14px_28px_rgba(16,185,129,0.08)]"
+        : tone === "repair"
+          ? "rounded-[1.2rem] border border-sky-300 bg-[linear-gradient(180deg,rgba(240,249,255,1),rgba(224,242,254,0.84))] p-4 text-sky-950 shadow-[0_14px_28px_rgba(14,165,233,0.08)]"
+          : tone === "missing"
+            ? "rounded-[1.2rem] border border-rose-300 bg-[linear-gradient(180deg,rgba(255,241,242,1),rgba(255,228,230,0.9))] p-4 text-rose-950 shadow-[0_14px_28px_rgba(244,63,94,0.08)]"
+            : tone === "incomplete"
+              ? "rounded-[1.2rem] border border-amber-300 bg-[linear-gradient(180deg,rgba(255,251,235,1),rgba(254,243,199,0.9))] p-4 text-amber-950 shadow-[0_14px_28px_rgba(245,158,11,0.08)]"
+              : "rounded-[1.2rem] border border-slate-200 bg-white/75 p-4";
+
+  const content = (
+    <div className={cn(toneClass, "transition-transform duration-150 hover:-translate-y-0.5")}>
+      <div className="flex items-start justify-between gap-3">
+        <div className={tone === "dark" ? "text-sm text-slate-300" : "text-sm font-medium opacity-80"}>{label}</div>
+        <div className={cn("rounded-full border px-2 py-2", tone === "dark" ? "border-white/10 bg-white/10" : "border-black/5 bg-white/70")}>
+          <Icon className={tone === "dark" ? "h-4 w-4 text-accent" : "h-4 w-4"} />
+        </div>
       </div>
       <div className="mt-3 text-3xl font-semibold">{value}</div>
+      {detail ? <div className="mt-2 text-xs font-medium uppercase tracking-[0.14em] opacity-70">{detail}</div> : null}
     </div>
   );
+
+  return href ? <Link href={href} className="block">{content}</Link> : content;
 }
 
 function MiniPanel({ title, value, description }: { title: string; value: string; description: string }) {

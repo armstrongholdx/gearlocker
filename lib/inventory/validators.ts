@@ -130,3 +130,10 @@ export const verifyKitItemSchema = z.object({
   isPresent: z.enum(["present", "missing"]),
   note: optionalText,
 });
+
+export const verifyKitItemByAssetIdSchema = z.object({
+  assetId: z.string().trim().min(1),
+  itemAssetId: z.string().trim().min(1),
+  isPresent: z.enum(["present", "missing"]).default("present"),
+  note: optionalText,
+});

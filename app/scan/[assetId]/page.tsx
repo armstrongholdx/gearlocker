@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { KitStatus } from "@prisma/client";
-import { ArrowRight, Boxes, ClipboardCheck, Eye, MapPinned, QrCode, Wrench } from "lucide-react";
+import { AlertTriangle, ArrowRight, Boxes, ClipboardCheck, Eye, MapPinned, QrCode, Wrench } from "lucide-react";
 import type { ComponentType, InputHTMLAttributes, ReactNode } from "react";
 
 import { StatusBadge } from "@/components/inventory/status-badge";
@@ -12,7 +12,7 @@ import { FeedbackBanner } from "@/components/ui/feedback-banner";
 import { buildActionFailurePath, buildActionSuccessPath, readFeedback } from "@/lib/action-feedback";
 import { allowedStatusTransitions, buildLocationPath, itemStatusMeta } from "@/lib/inventory/domain";
 import { moveItemToLocation, setKitStatus, startKitReturnVerification, transitionItemStatus } from "@/lib/inventory/mutations";
-import { getItemFormOptions, resolveScannableEntity } from "@/lib/inventory/queries";
+import { getGlobalOperationalAlerts, getItemFormOptions, resolveScannableEntity } from "@/lib/inventory/queries";
 import { itemDetailPath, itemMovePath, itemScanPath, kitDetailPath, kitReturnPath } from "@/lib/paths";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ async function scanTransitionItem(formData: FormData) {
 
   try {
     await transitionItemStatus(formData);
-    redirect(buildActionSuccessPath(itemScanPath(assetId), "Item updated from scan actions."));
+    redirect(buildActionSuccessPath(itemScanPath(assetId), "Item updated."));
   } catch (error) {
     redirect(buildActionFailurePath(itemScanPath(assetId), error));
   }
@@ -78,7 +78,11 @@ export default async function ScanResolverPage({
 }) {
   const { assetId } = await params;
   const decodedAssetId = decodeURIComponent(assetId);
-  const [resolved, options] = await Promise.all([resolveScannableEntity(decodedAssetId), getItemFormOptions({ includeKits: false })]);
+  const [resolved, options, alerts] = await Promise.all([
+    resolveScannableEntity(decodedAssetId),
+    getItemFormOptions({ includeKits: false }),
+    getGlobalOperationalAlerts(),
+  ]);
   const feedback = await readFeedback(searchParams);
 
   if (!resolved) {
@@ -104,6 +108,19 @@ export default async function ScanResolverPage({
     return (
       <div className="mx-auto max-w-4xl space-y-4">
         <FeedbackBanner {...feedback} />
+        {alerts.activeReturnSessions[0] ? (
+          <div className="rounded-[1.2rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                <span>Return verification is still open for {alerts.activeReturnSessions[0].kit.assetId}.</span>
+              </div>
+              <Link href={kitReturnPath(alerts.activeReturnSessions[0].kit.assetId)} className="font-medium underline underline-offset-4">
+                Open return
+              </Link>
+            </div>
+          </div>
+        ) : null}
         <Card className="overflow-hidden border-slate-200">
           <CardContent className="space-y-4 bg-slate-950 p-5 text-white sm:p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -125,10 +142,22 @@ export default async function ScanResolverPage({
               <ScanMetaPill label="Kits" value={String(resolved.entity._count.kits)} />
               <ScanMetaPill label="Tracked" value={String(resolved.entity._count.packageContents)} />
               <ScanMetaPill label="Checklist" value={String(resolved.entity._count.checklistContents)} />
+              <ScanMetaPill
+                label="Package role"
+                value={resolved.entity._count.packageContents > 0 ? "Parent package" : resolved.entity._count.containedIn > 0 ? "Contained item" : "Standalone"}
+              />
+              <ScanMetaPill label="In packages" value={String(resolved.entity._count.containedIn)} />
               <ScanMetaPill label="Status" value={itemStatusMeta[resolved.entity.status].label} />
             </div>
           </CardContent>
         </Card>
+
+        <div className="grid gap-2 sm:grid-cols-4">
+          <QuickJump href={itemDetailPath(resolved.entity.assetId)} label="Inspect" />
+          <QuickJump href={`${itemDetailPath(resolved.entity.assetId)}#package-contents`} label="Contents" />
+          <QuickJump href={itemMovePath(resolved.entity.assetId)} label="Move" />
+          <QuickJump href={itemScanPath(resolved.entity.assetId)} label="Refresh" />
+        </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
           {canCheckOut ? (
@@ -222,9 +251,34 @@ export default async function ScanResolverPage({
     );
   }
 
+  const latestVerification = resolved.entity.verificationSessions[0] ?? null;
+  const pendingCount = latestVerification?.items.filter((entry) => !entry.verifiedAt).length ?? 0;
+  const missingCount = latestVerification?.items.filter((entry) => entry.isPresent === false).length ?? 0;
+  const verificationState =
+    latestVerification
+      ? pendingCount > 0
+        ? `${pendingCount} pending`
+        : missingCount > 0
+          ? `${missingCount} missing`
+          : "Verified"
+      : "Not started";
+
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <FeedbackBanner {...feedback} />
+      {alerts.activeReturnSessions[0] && alerts.activeReturnSessions[0].kit.assetId !== resolved.entity.assetId ? (
+        <div className="rounded-[1.2rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              <span>Return verification is still open for {alerts.activeReturnSessions[0].kit.assetId}.</span>
+            </div>
+            <Link href={kitReturnPath(alerts.activeReturnSessions[0].kit.assetId)} className="font-medium underline underline-offset-4">
+              Open return
+            </Link>
+          </div>
+        </div>
+      ) : null}
       <Card className="overflow-hidden border-slate-200">
         <CardContent className="space-y-4 bg-slate-950 p-5 text-white sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -243,13 +297,20 @@ export default async function ScanResolverPage({
             </div>
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-4">
             <ScanMetaPill label="Members" value={String(resolved.entity._count.items)} />
             <ScanMetaPill label="Location" value={buildLocationPath(resolved.entity.location)} />
             <ScanMetaPill label="Status" value={resolved.entity.status.replaceAll("_", " ")} />
+            <ScanMetaPill label="Verification" value={verificationState} />
           </div>
         </CardContent>
       </Card>
+
+      <div className="grid gap-2 sm:grid-cols-3">
+        <QuickJump href={kitDetailPath(resolved.entity.assetId)} label="Inspect kit" />
+        <QuickJump href={kitReturnPath(resolved.entity.assetId)} label="Return verify" />
+        <QuickJump href={itemScanPath(resolved.entity.assetId)} label="Refresh" />
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <ActionCard title="Check out whole kit" icon={QrCode}>
@@ -319,6 +380,14 @@ function ScanMetaPill({ label, value }: { label: string; value: string }) {
       <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400">{label}</div>
       <div className="mt-1 text-sm font-medium text-white">{value}</div>
     </div>
+  );
+}
+
+function QuickJump({ href, label }: { href: string; label: string }) {
+  return (
+    <Button asChild variant="outline" className="h-11 justify-center">
+      <Link href={href}>{label}</Link>
+    </Button>
   );
 }
 

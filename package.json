@@ -30,6 +30,7 @@
     "@radix-ui/react-slot": "latest",
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
+    "@zxing/browser": "^0.1.5",
     "class-variance-authority": "latest",
     "clsx": "latest",
     "date-fns": "latest",

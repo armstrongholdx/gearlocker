@@ -13,7 +13,7 @@ import { buildLocationPath, itemStatusMeta, kitHistoryTypeMeta } from "@/lib/inv
 import { addItemMembershipToKit, removeItemMembershipFromKit, setKitStatus, startKitReturnVerification } from "@/lib/inventory/mutations";
 import { prisma } from "@/lib/prisma";
 import { getKitByAssetId } from "@/lib/inventory/queries";
-import { itemDetailPath, itemScanPath, kitDetailPath, kitReturnPath } from "@/lib/paths";
+import { itemDetailPath, itemScanPath, kitDetailPath, kitLabelPath, kitReturnPath } from "@/lib/paths";
 
 export const dynamic = "force-dynamic";
 
@@ -106,8 +106,11 @@ export default async function KitDetailPage({
           <Button asChild>
             <Link href={itemScanPath(kit.assetId)}>
               <ScanLine className="h-4 w-4" />
-              Open scan actions
+              Open scan
             </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href={kitLabelPath(kit.assetId)}>Print label</Link>
           </Button>
           <Button variant="outline" asChild>
             <Link href={kitReturnPath(kit.assetId)}>

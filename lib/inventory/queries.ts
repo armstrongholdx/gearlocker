@@ -96,6 +96,7 @@ export async function resolveScannableEntity(assetId: string) {
             kits: true,
             packageContents: true,
             checklistContents: true,
+            containedIn: true,
           },
         },
       },
@@ -108,6 +109,19 @@ export async function resolveScannableEntity(assetId: string) {
         status: true,
         location: { include: { parentLocation: { include: { parentLocation: true } } } },
         _count: { select: { items: true } },
+        verificationSessions: {
+          orderBy: { startedAt: "desc" },
+          take: 1,
+          select: {
+            status: true,
+            items: {
+              select: {
+                verifiedAt: true,
+                isPresent: true,
+              },
+            },
+          },
+        },
       },
     }),
   ]);
@@ -140,7 +154,7 @@ export async function getItemFormOptions({ includeKits = true, includeItems = fa
 }
 
 export async function getDashboardSummary() {
-  const [totalItems, categories, statuses, recentItems, recentHistory, totalKits, totalLocations, activeKits] = await Promise.all([
+  const [totalItems, categories, statuses, recentItems, recentHistory, totalKits, totalLocations, activeKits, incompleteKits] = await Promise.all([
     prisma.item.count(),
     prisma.category.findMany({
       orderBy: { name: "asc" },
@@ -160,9 +174,34 @@ export async function getDashboardSummary() {
     prisma.kit.count(),
     prisma.location.count(),
     prisma.kit.count({ where: { status: KitStatus.active } }),
+    prisma.kit.count({ where: { status: KitStatus.incomplete } }),
   ]);
 
-  return { totalItems, categories, statuses, recentItems, recentHistory, totalKits, totalLocations, activeKits };
+  return { totalItems, categories, statuses, recentItems, recentHistory, totalKits, totalLocations, activeKits, incompleteKits };
+}
+
+export async function getGlobalOperationalAlerts() {
+  try {
+    const [activeReturnSessions, incompleteKits] = await Promise.all([
+      prisma.kitVerificationSession.findMany({
+        where: { status: "in_progress" },
+        take: 3,
+        include: { kit: { select: { assetId: true, name: true } } },
+        orderBy: { startedAt: "desc" },
+      }),
+      prisma.kit.count({ where: { status: KitStatus.incomplete } }),
+    ]);
+
+    return {
+      activeReturnSessions,
+      incompleteKits,
+    };
+  } catch {
+    return {
+      activeReturnSessions: [],
+      incompleteKits: 0,
+    };
+  }
 }
 
 type KitCompleteness = {

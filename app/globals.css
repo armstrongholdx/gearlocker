@@ -72,3 +72,39 @@ body {
   background: rgba(148, 163, 184, 0.55);
   border-radius: 999px;
 }
+
+@keyframes pulse-green {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.36);
+  }
+  100% {
+    box-shadow: 0 0 0 18px rgba(16, 185, 129, 0);
+  }
+}
+
+@keyframes subtle-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-4px);
+  }
+  40% {
+    transform: translateX(4px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+}
+
+.scan-success-flash {
+  animation: pulse-green 0.4s ease-out;
+}
+
+.scan-error-shake {
+  animation: subtle-shake 0.28s ease-in-out;
+}

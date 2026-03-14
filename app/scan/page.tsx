@@ -2,11 +2,12 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Boxes, ClipboardCheck, MapPinned, ScanLine } from "lucide-react";
+import { Boxes, ClipboardCheck, ScanLine } from "lucide-react";
 import type { ComponentType } from "react";
 
+import { ScanTerminal } from "@/components/scan/scan-terminal";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 export default function ScanPage() {
@@ -24,37 +25,42 @@ export default function ScanPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
-      <div>
-        <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Scan</div>
-        <h1 className="text-3xl font-semibold tracking-tight">Quick-action scan console</h1>
+      <div className="md:hidden">
+        <ScanTerminal />
       </div>
-      <div className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
+
+      <div className="hidden space-y-4 md:block">
+        <div>
+          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Scan</div>
+          <h1 className="text-3xl font-semibold tracking-tight">Scan gear</h1>
+        </div>
+      </div>
+
+      <div className="hidden gap-4 xl:grid-cols-[0.8fr_1.2fr] md:grid">
         <Card className="bg-slate-950 text-white">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-white">
               <ScanLine className="h-5 w-5 text-accent" />
-              Action-first
+              Scan tools
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3">
             <ScanConcept icon={Boxes} title="Item" body="Check out, move, inspect, repair." />
-            <ScanConcept icon={ClipboardCheck} title="Kit" body="Check out or begin return verification." />
-            <ScanConcept icon={MapPinned} title="Location" body="Keep storage path visible while acting." />
+            <ScanConcept icon={ClipboardCheck} title="Kit" body="Check out or return verify." />
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle>Manual lookup</CardTitle>
-            <CardDescription>Use asset ID to open the same mobile action surface that QR scanning lands on.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <form onSubmit={handleSubmit} className="space-y-3">
               <Input value={assetId} onChange={(event) => setAssetId(event.target.value)} placeholder="CAM-001 or KIT-001" />
-              <Button type="submit" className="w-full sm:w-auto">Open action panel</Button>
+              <Button type="submit" className="w-full sm:w-auto">Open scan</Button>
             </form>
             <div className="grid gap-3 md:grid-cols-2">
-              <QuickActionHint title="Item" items="Inspect, check out, check in, move, repair, missing." />
-              <QuickActionHint title="Kit" items="Inspect, check out whole kit, begin return verification." />
+              <QuickActionHint title="Item" items="Inspect, check out, check in, move." />
+              <QuickActionHint title="Kit" items="Inspect, check out, return verify." />
             </div>
           </CardContent>
         </Card>

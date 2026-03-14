@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buildLocationPath } from "@/lib/inventory/domain";
 import { formatCurrency } from "@/lib/format";
 import { itemDetailPath } from "@/lib/paths";
+import { cn } from "@/lib/utils";
 
 type InventoryItem = Item & {
   category: { name: string } | null;
@@ -31,7 +32,7 @@ export function InventoryTable({ items }: { items: InventoryItem[] }) {
       <CardHeader className="flex flex-row items-end justify-between gap-4">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Inventory view</div>
-          <CardTitle className="mt-1">Operational asset list</CardTitle>
+          <CardTitle className="mt-1">Inventory</CardTitle>
         </div>
         <div className="text-sm text-muted-foreground">{items.length} visible items</div>
       </CardHeader>
@@ -50,16 +51,26 @@ export function InventoryTable({ items }: { items: InventoryItem[] }) {
           </thead>
           <tbody>
             {items.map((item) => (
-              <tr key={item.id} className={item.status === "active" ? "border-b border-slate-200/70 bg-amber-50/55 last:border-b-0" : "border-b border-slate-200/70 last:border-b-0"}>
+              <tr
+                key={item.id}
+                className={cn(
+                  "border-b border-slate-200/70 transition-colors last:border-b-0",
+                  item.status === "active" && "bg-emerald-50/70 shadow-[inset_3px_0_0_0_rgba(16,185,129,0.5)]",
+                  item.status === "missing" && "bg-rose-50/70 shadow-[inset_3px_0_0_0_rgba(244,63,94,0.5)]",
+                  item.status === "in_repair" && "bg-sky-50/70 shadow-[inset_3px_0_0_0_rgba(14,165,233,0.5)]",
+                )}
+              >
                 <td className="py-4 pr-4">
                   <Link href={itemDetailPath(item.assetId)} className="font-semibold hover:underline">
                     {item.name}
                   </Link>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {[item.brand, item.model].filter(Boolean).join(" ")}
-                  </div>
+                  {[item.brand, item.model].filter(Boolean).length > 0 ? <div className="mt-1 text-xs text-muted-foreground">{[item.brand, item.model].filter(Boolean).join(" ")}</div> : null}
                 </td>
-                <td className="py-4 pr-4 font-mono text-xs font-semibold">{item.assetId}</td>
+                <td className="py-4 pr-4">
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-700">
+                    {item.assetId}
+                  </span>
+                </td>
                 <td className="py-4 pr-4">
                   <Badge variant="outline">{item.category?.name ?? "Uncategorized"}</Badge>
                 </td>
@@ -90,7 +101,10 @@ export function InventoryTable({ items }: { items: InventoryItem[] }) {
             <Link
               key={item.id}
               href={itemDetailPath(item.assetId)}
-              className="rounded-[1.2rem] border border-slate-200 bg-white/80 p-4 transition hover:border-slate-300 hover:bg-white"
+              className={cn(
+                "rounded-[1.2rem] border bg-white/80 p-4 transition hover:border-slate-300 hover:bg-white",
+                item.status === "active" ? "border-emerald-200" : item.status === "missing" ? "border-rose-200" : item.status === "in_repair" ? "border-sky-200" : "border-slate-200",
+              )}
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -100,7 +114,9 @@ export function InventoryTable({ items }: { items: InventoryItem[] }) {
                 <StatusBadge status={item.status} />
               </div>
               <div className="mt-3 grid gap-2 text-sm text-muted-foreground">
-                <div>{item.category?.name ?? "Uncategorized"}</div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="outline">{item.category?.name ?? "Uncategorized"}</Badge>
+                </div>
                 <div className="flex items-start gap-2">
                   <MapPinned className="mt-0.5 h-4 w-4" />
                   <span>{buildLocationPath(item.location)}</span>
@@ -118,7 +134,7 @@ export function InventoryTable({ items }: { items: InventoryItem[] }) {
                   </div>
                 ) : null}
               </div>
-              <div className="mt-4 flex items-center justify-between">
+              <div className="mt-4 flex items-center justify-between border-t border-slate-200/70 pt-3">
                 <div className="text-sm font-semibold">{formatCurrency(item.replacementValue ? Number(item.replacementValue) : null, item.currency)}</div>
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </div>
