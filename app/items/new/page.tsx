@@ -2,8 +2,9 @@ import { redirect } from "next/navigation";
 
 import { ItemUpsertForm } from "@/components/forms/item-upsert-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { buildActionSuccessPath } from "@/lib/action-feedback";
 import type { FormState } from "@/lib/form-state";
-import { createErrorFormState, extractFormValues } from "@/lib/form-state";
+import { createErrorFormState, createSuccessFormState, extractFormValues } from "@/lib/form-state";
 import { createItemRecord } from "@/lib/inventory/mutations";
 import { getItemFormOptions } from "@/lib/inventory/queries";
 import { itemDetailPath } from "@/lib/paths";
@@ -29,6 +30,7 @@ const itemFieldNames = [
   "purchaseSource",
   "purchaseReference",
   "warrantyExpiresAt",
+  "imageCoverUrl",
   "quantity",
   "tagNames",
   "conditionNotes",
@@ -41,12 +43,10 @@ async function createItem(state: FormState, formData: FormData): Promise<FormSta
 
   try {
     const item = await createItemRecord(formData);
-    redirect(itemDetailPath(item.assetId));
+    return createSuccessFormState("Item successfully created.", buildActionSuccessPath(itemDetailPath(item.assetId), "Item successfully created."));
   } catch (error) {
     return createErrorFormState(error, extractFormValues(formData, [...itemFieldNames]));
   }
-
-  return state;
 }
 
 export default async function NewItemPage({

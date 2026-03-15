@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 import { ItemFormFields, type ItemFormValues } from "@/components/items/item-form-fields";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,15 @@ export function ItemUpsertForm({
   submitLabel: string;
   hiddenFields?: Array<{ name: string; value: string }>;
 }) {
+  const router = useRouter();
   const [state, formAction, isPending] = useActionState(action, createEmptyFormState());
+
+  useEffect(() => {
+    if (state.status === "success" && state.redirectTo) {
+      router.push(state.redirectTo);
+      router.refresh();
+    }
+  }, [router, state.redirectTo, state.status]);
 
   const values = {
     ...initialValues,
@@ -45,7 +54,10 @@ export function ItemUpsertForm({
     <form action={formAction} className="grid gap-5 md:grid-cols-2">
       {hiddenFields?.map((field) => <input key={field.name} type="hidden" name={field.name} value={field.value} />)}
       <div className="md:col-span-2">
-        <FeedbackBanner error={state.status === "error" ? state.message : undefined} />
+        <FeedbackBanner
+          error={state.status === "error" ? state.message : undefined}
+          success={state.status === "success" && !state.redirectTo ? state.message : undefined}
+        />
       </div>
       <ItemFormFields categories={categories} locations={locations} values={values} errors={state.fieldErrors} />
       <div className="rounded-xl border border-dashed bg-secondary/50 px-4 py-3 text-sm text-muted-foreground md:col-span-2">

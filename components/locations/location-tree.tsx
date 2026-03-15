@@ -1,4 +1,7 @@
+import Link from "next/link";
+
 import { LocationTreeNode } from "@/lib/locations";
+import { locationDetailPath } from "@/lib/paths";
 
 export function LocationTree({ nodes }: { nodes: LocationTreeNode[] }) {
   return (
@@ -7,7 +10,9 @@ export function LocationTree({ nodes }: { nodes: LocationTreeNode[] }) {
         <div key={node.id} className="rounded-[1.2rem] border border-slate-200 bg-white/80 p-4">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="font-semibold">{node.name}</p>
+              <Link href={locationDetailPath(node.id)} className="font-semibold hover:underline">
+                {node.name}
+              </Link>
               <p className="text-sm text-muted-foreground">
                 <span className="font-mono text-xs">{node.code ?? "No code"}</span>
                 {node.description ? ` · ${node.description}` : ""}

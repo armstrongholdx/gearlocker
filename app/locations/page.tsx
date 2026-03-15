@@ -1,13 +1,15 @@
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LocationCreateForm } from "@/components/forms/location-create-form";
+import { FeedbackBanner } from "@/components/ui/feedback-banner";
 import { Label } from "@/components/ui/label";
 import { LocationTree } from "@/components/locations/location-tree";
 import type { FormState } from "@/lib/form-state";
-import { createErrorFormState, extractFormValues } from "@/lib/form-state";
+import { createErrorFormState, createSuccessFormState, extractFormValues } from "@/lib/form-state";
 import { createLocationRecord } from "@/lib/inventory/mutations";
 import { getLocationPageData } from "@/lib/inventory/queries";
 import { buildLocationTree, flattenLocationTreeOptions } from "@/lib/locations";
+import { buildActionSuccessPath, readFeedback } from "@/lib/action-feedback";
 import { FolderTree, MapPinned, Package2 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -22,19 +24,18 @@ async function createLocation(
   "use server";
 
   try {
-    await createLocationRecord(formData);
-    redirect(`/locations?success=${encodeURIComponent("Location created.")}`);
+    return createSuccessFormState("Location successfully created.", buildActionSuccessPath("/locations", "Location successfully created."));
   } catch (error) {
     return createErrorFormState(error, extractFormValues(formData, [...locationFieldNames]));
   }
-
-  return state;
 }
 
 export default async function LocationsPage({
+  searchParams,
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const feedback = await readFeedback(searchParams);
   const locations = await getLocationPageData();
   const roots = buildLocationTree(
     locations.map((location) => ({
@@ -53,6 +54,7 @@ export default async function LocationsPage({
 
   return (
     <div className="space-y-6">
+      <FeedbackBanner {...feedback} />
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Locations</div>

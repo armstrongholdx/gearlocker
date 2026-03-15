@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ export function KitCreateForm({
   locations: LocationOption[];
   items: ItemOption[];
 }) {
+  const router = useRouter();
   const [state, formAction, isPending] = useActionState(action, createEmptyFormState());
   const [query, setQuery] = useState("");
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>(
@@ -50,6 +52,13 @@ export function KitCreateForm({
     const next = state.values?.assetIds ? String(state.values.assetIds).split(",").map((entry) => entry.trim()).filter(Boolean) : [];
     setSelectedAssetIds(next);
   }, [state.values?.assetIds]);
+
+  useEffect(() => {
+    if (state.status === "success" && state.redirectTo) {
+      router.push(state.redirectTo);
+      router.refresh();
+    }
+  }, [router, state.redirectTo, state.status]);
 
   const selectedItems = items.filter((item) => selectedAssetIds.includes(item.assetId));
   const suggestions = items
@@ -74,7 +83,10 @@ export function KitCreateForm({
   return (
     <form action={formAction} className="grid gap-4 md:grid-cols-2">
       <div className="md:col-span-2">
-        <FeedbackBanner error={state.status === "error" ? state.message : undefined} />
+        <FeedbackBanner
+          error={state.status === "error" ? state.message : undefined}
+          success={state.status === "success" && !state.redirectTo ? state.message : undefined}
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="kit-name">Kit name</Label>

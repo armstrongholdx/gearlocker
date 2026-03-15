@@ -104,6 +104,7 @@ export function ScanTerminal() {
 
   const payload = panelState.phase === "warning" || panelState.phase === "scanned" || panelState.phase === "confirmed" ? panelState.payload : null;
   const isReturnMode = Boolean(payload?.activeReturn);
+  const hasOpenResult = panelState.phase === "scanned" || panelState.phase === "warning";
 
   useEffect(() => {
     const supabase = supabaseRef.current;
@@ -175,6 +176,16 @@ export function ScanTerminal() {
     }, delay);
   }
 
+  function clearPanel() {
+    if (resetTimerRef.current) {
+      window.clearTimeout(resetTimerRef.current);
+    }
+    setPanelState({ phase: "idle" });
+    setNote("");
+    setMoveOpen(false);
+    setSelectedLocationId("");
+  }
+
   function pushHistory(entry: Omit<ScanHistoryEntry, "id">) {
     setHistory((current) => [
       { ...entry, id: `${entry.assetId}-${Date.now()}` },
@@ -218,6 +229,10 @@ export function ScanTerminal() {
   async function resolveScan(assetId: string, allowOverride = false) {
     const trimmed = assetId.trim();
     if (!trimmed) return;
+
+    if (!allowOverride && hasOpenResult) {
+      return;
+    }
 
     const lastScan = lastScanRef.current;
     const now = Date.now();
@@ -564,6 +579,9 @@ export function ScanTerminal() {
                   <Button type="button" variant="outline" className="h-12 rounded-2xl border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={() => setPanelState({ phase: "scanned", payload: panelState.payload, accent: "amber" })}>
                     Use this scan anyway
                   </Button>
+                  <Button type="button" variant="ghost" className="h-11 rounded-2xl text-slate-300 hover:bg-white/5 hover:text-white" onClick={clearPanel}>
+                    Clear scan
+                  </Button>
                 </div>
               ) : null}
 
@@ -571,15 +589,15 @@ export function ScanTerminal() {
                 <>
                   <div className="mt-4 grid grid-cols-2 gap-2.5">
                     {primaryItemAction ? <ActionChip label={primaryItemAction.label} priority="primary" onClick={() => runItemAction(primaryItemAction.action)} /> : null}
+                    <ActionChip label="Relocate" icon={<MapPinned className="h-4 w-4" />} onClick={() => setMoveOpen((current) => !current)} />
+                    <ActionChip label="Needs repair" icon={<Wrench className="h-4 w-4" />} onClick={() => runItemAction("repair")} />
                     {payload.entity.status !== "active" && primaryItemAction?.action !== "check_out" ? (
                       <ActionChip label="Check out" onClick={() => runItemAction("check_out")} />
                     ) : null}
                     {payload.entity.status !== "available" && primaryItemAction?.action !== "check_in" ? (
                       <ActionChip label="Check in" onClick={() => runItemAction("check_in")} />
                     ) : null}
-                    <ActionChip label="Repair" icon={<Wrench className="h-4 w-4" />} onClick={() => runItemAction("repair")} />
                     <ActionChip label="Missing" icon={<AlertTriangle className="h-4 w-4" />} onClick={() => runItemAction("missing")} />
-                    <ActionChip label="Move" icon={<MapPinned className="h-4 w-4" />} onClick={() => setMoveOpen((current) => !current)} />
                     <Button asChild variant="outline" className="h-12 justify-center border-white/15 bg-white/5 text-white hover:bg-white/10">
                       <Link href={`/items/${encodeURIComponent(payload.entity.assetId)}`}>
                         Inspect
@@ -627,6 +645,12 @@ export function ScanTerminal() {
                     </Link>
                   </Button>
                 </div>
+              ) : null}
+
+              {panelState.phase === "scanned" ? (
+                <Button type="button" variant="ghost" className="mt-3 h-10 rounded-2xl text-slate-300 hover:bg-white/5 hover:text-white" onClick={clearPanel}>
+                  Ready for next scan
+                </Button>
               ) : null}
 
               {payload.type === "item" ? (

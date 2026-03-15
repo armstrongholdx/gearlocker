@@ -235,6 +235,21 @@ export default async function ItemDetailPage({
 
             <div className="grid gap-6 p-6 md:grid-cols-[1.15fr_0.85fr]">
               <div className="space-y-4">
+                <div className="overflow-hidden rounded-[1.2rem] border border-slate-200 bg-slate-100">
+                  {item.imageCoverUrl ? (
+                    <Image
+                      src={item.imageCoverUrl}
+                      alt={item.name}
+                      width={1200}
+                      height={800}
+                      className="h-56 w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+                      Add a cover image from Edit item.
+                    </div>
+                  )}
+                </div>
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <WorkBadge label="Status" value={itemStatusMeta[item.status].label} />
                   <WorkBadge label="Location" value={buildLocationPath(item.location)} />

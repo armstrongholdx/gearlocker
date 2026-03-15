@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { FeedbackBanner } from "@/components/ui/feedback-banner";
@@ -17,30 +18,48 @@ type LocationCreateValues = {
 export function LocationCreateForm({
   action,
   parentOptions,
+  initialValues,
+  hiddenFields,
+  submitLabel = "Create location",
 }: {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
   parentOptions: Array<{ id: string; label: string }>;
+  initialValues?: LocationCreateValues;
+  hiddenFields?: Array<{ name: string; value: string }>;
+  submitLabel?: string;
 }) {
+  const router = useRouter();
   const [state, formAction, isPending] = useActionState(action, createEmptyFormState());
+
+  useEffect(() => {
+    if (state.status === "success" && state.redirectTo) {
+      router.push(state.redirectTo);
+      router.refresh();
+    }
+  }, [router, state.redirectTo, state.status]);
 
   return (
     <form action={formAction} className="grid gap-4 md:grid-cols-2">
+      {hiddenFields?.map((field) => <input key={field.name} type="hidden" name={field.name} value={field.value} />)}
       <div className="md:col-span-2">
-        <FeedbackBanner error={state.status === "error" ? state.message : undefined} />
+        <FeedbackBanner
+          error={state.status === "error" ? state.message : undefined}
+          success={state.status === "success" && !state.redirectTo ? state.message : undefined}
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="location-name">Location name</Label>
-        <input id="location-name" name="name" defaultValue={state.values?.name ?? ""} placeholder="Camera Shelf B" className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm" required />
+        <input id="location-name" name="name" defaultValue={state.values?.name ?? initialValues?.name ?? ""} placeholder="Camera Shelf B" className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm" required />
         <FieldError message={state.fieldErrors?.name} />
       </div>
       <div className="space-y-2">
         <Label htmlFor="location-code">Location code</Label>
-        <input id="location-code" name="code" defaultValue={state.values?.code ?? ""} placeholder="LOC-CAM-B" className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm" />
+        <input id="location-code" name="code" defaultValue={state.values?.code ?? initialValues?.code ?? ""} placeholder="LOC-CAM-B" className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm" />
         <FieldError message={state.fieldErrors?.code} />
       </div>
       <div className="space-y-2 md:col-span-2">
         <Label htmlFor="location-parent">Parent location</Label>
-        <select id="location-parent" name="parentLocationId" defaultValue={state.values?.parentLocationId ?? ""} className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm">
+        <select id="location-parent" name="parentLocationId" defaultValue={state.values?.parentLocationId ?? initialValues?.parentLocationId ?? ""} className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm">
           <option value="">No parent location</option>
           {parentOptions.map((option) => (
             <option key={option.id} value={option.id}>
@@ -53,12 +72,12 @@ export function LocationCreateForm({
       </div>
       <div className="space-y-2 md:col-span-2">
         <Label htmlFor="location-description">Description</Label>
-        <textarea id="location-description" name="description" defaultValue={state.values?.description ?? ""} placeholder="What is stored here and how it is organized." className="min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm" />
+        <textarea id="location-description" name="description" defaultValue={state.values?.description ?? initialValues?.description ?? ""} placeholder="What is stored here and how it is organized." className="min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm" />
         <FieldError message={state.fieldErrors?.description} />
       </div>
       <div className="md:col-span-2">
         <Button type="submit" disabled={isPending}>
-          {isPending ? "Creating..." : "Create location"}
+          {isPending ? "Saving..." : submitLabel}
         </Button>
       </div>
     </form>

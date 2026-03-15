@@ -81,6 +81,8 @@ export default async function KitReturnPage({
         return leftRank - rightRank;
       })
     : [];
+  const pendingEntries = orderedEntries.filter((entry) => !entry.verifiedAt);
+  const verifiedEntries = orderedEntries.filter((entry) => entry.verifiedAt);
   const progressPercent = expectedCount > 0 ? Math.round((verifiedCount / expectedCount) * 100) : 0;
 
   return (
@@ -175,67 +177,38 @@ export default async function KitReturnPage({
             {!latestSession ? (
               <p className="text-sm text-muted-foreground">Start a return session to verify kit contents.</p>
             ) : (
-              orderedEntries.map((entry) => (
-                <div key={entry.itemId} className="rounded-[1.2rem] border border-slate-200 bg-white/80 p-4">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
-                      <Link href={itemDetailPath(entry.item.assetId)} className="font-medium hover:underline">
-                        {entry.item.assetId} · {entry.item.name}
-                      </Link>
-                      <div className="mt-1 text-sm text-muted-foreground">
-                        {buildLocationPath(entry.item.location)} · {itemStatusMeta[entry.item.status].label}
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {entry.item.kits.length > 1 ? "Shared across multiple kits" : "Dedicated to this kit"}
-                      </div>
-                    </div>
-                    <VerificationPill
-                      state={
-                        entry.verifiedAt
-                          ? entry.isPresent === false
-                            ? "missing"
-                            : "present"
-                          : "pending"
-                      }
-                    />
+              <div className="grid gap-4 xl:grid-cols-2">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Pending</div>
+                    <VerificationPill state="pending" />
                   </div>
-
-                  {activeSession ? (
-                    <div className="mt-4 grid gap-3 md:grid-cols-2">
-                      <form action={verifyItem} className="space-y-3 rounded-[1.05rem] border border-emerald-200 bg-emerald-50 p-3">
-                        <input type="hidden" name="assetId" value={kit.assetId} />
-                        <input type="hidden" name="itemId" value={entry.itemId} />
-                        <input type="hidden" name="isPresent" value="present" />
-                        <input
-                          name="note"
-                          className="flex h-11 w-full rounded-xl border bg-white px-3 py-2 text-sm"
-                          placeholder="Confirmed in case / back on shelf"
-                          defaultValue={entry.note ?? ""}
-                        />
-                        <Button type="submit" className="w-full">
-                          <CheckCircle2 className="h-4 w-4" />
-                          Mark present
-                        </Button>
-                      </form>
-                      <form action={verifyItem} className="space-y-3 rounded-[1.05rem] border border-amber-200 bg-amber-50 p-3">
-                        <input type="hidden" name="assetId" value={kit.assetId} />
-                        <input type="hidden" name="itemId" value={entry.itemId} />
-                        <input type="hidden" name="isPresent" value="missing" />
-                        <input
-                          name="note"
-                          className="flex h-11 w-full rounded-xl border bg-white px-3 py-2 text-sm"
-                          placeholder="Still on truck / missing from case"
-                          defaultValue={entry.note ?? ""}
-                        />
-                        <Button type="submit" variant="outline" className="w-full">
-                          <AlertTriangle className="h-4 w-4" />
-                          Mark missing
-                        </Button>
-                      </form>
+                  {pendingEntries.length === 0 ? (
+                    <div className="rounded-[1.2rem] border border-dashed border-slate-300 bg-secondary/40 p-4 text-sm text-muted-foreground">
+                      No pending items.
                     </div>
-                  ) : null}
+                  ) : (
+                    pendingEntries.map((entry) => (
+                      <VerificationCard key={entry.itemId} entry={entry} kitAssetId={kit.assetId} action={verifyItem} pending />
+                    ))
+                  )}
                 </div>
-              ))
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Verified</div>
+                    <VerificationPill state="present" />
+                  </div>
+                  {verifiedEntries.length === 0 ? (
+                    <div className="rounded-[1.2rem] border border-dashed border-slate-300 bg-secondary/40 p-4 text-sm text-muted-foreground">
+                      Verified items will move here.
+                    </div>
+                  ) : (
+                    verifiedEntries.map((entry) => (
+                      <VerificationCard key={entry.itemId} entry={entry} kitAssetId={kit.assetId} action={verifyItem} />
+                    ))
+                  )}
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -302,6 +275,96 @@ export default async function KitReturnPage({
           </Card>
         </div>
       </div>
+    </div>
+  );
+}
+
+function VerificationCard({
+  entry,
+  kitAssetId,
+  action,
+  pending = false,
+}: {
+  entry: {
+    itemId: string;
+    verifiedAt: Date | null;
+    isPresent: boolean | null;
+    note: string | null;
+    item: {
+      id: string;
+      assetId: string;
+      name: string;
+      status: keyof typeof itemStatusMeta;
+      location: Parameters<typeof buildLocationPath>[0];
+      kits: { kitId: string }[];
+    };
+  };
+  kitAssetId: string;
+  action: (formData: FormData) => Promise<void>;
+  pending?: boolean;
+}) {
+  const state = entry.verifiedAt ? (entry.isPresent === false ? "missing" : "present") : "pending";
+
+  return (
+    <div
+      className={
+        pending
+          ? "rounded-[1.2rem] border border-amber-200 bg-amber-50/60 p-4"
+          : state === "missing"
+            ? "rounded-[1.2rem] border border-amber-200 bg-amber-50/60 p-4"
+            : "rounded-[1.2rem] border border-emerald-200 bg-emerald-50/40 p-4"
+      }
+    >
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <Link href={itemDetailPath(entry.item.assetId)} className="font-medium hover:underline">
+            {entry.item.assetId} · {entry.item.name}
+          </Link>
+          <div className="mt-1 text-sm text-muted-foreground">
+            {buildLocationPath(entry.item.location)} · {itemStatusMeta[entry.item.status].label}
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {entry.item.kits.length > 1 ? "Shared across multiple kits" : "Dedicated to this kit"}
+          </div>
+          {entry.note ? <div className="mt-2 text-sm text-muted-foreground">{entry.note}</div> : null}
+        </div>
+        <VerificationPill state={state} />
+      </div>
+
+      {pending ? (
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <form action={action} className="space-y-3 rounded-[1.05rem] border border-emerald-200 bg-emerald-50 p-3">
+            <input type="hidden" name="assetId" value={kitAssetId} />
+            <input type="hidden" name="itemId" value={entry.itemId} />
+            <input type="hidden" name="isPresent" value="present" />
+            <input
+              name="note"
+              className="flex h-11 w-full rounded-xl border bg-white px-3 py-2 text-sm"
+              placeholder="Confirmed in case / back on shelf"
+              defaultValue={entry.note ?? ""}
+            />
+            <Button type="submit" className="w-full">
+              <CheckCircle2 className="h-4 w-4" />
+              Mark present
+            </Button>
+          </form>
+          <form action={action} className="space-y-3 rounded-[1.05rem] border border-amber-200 bg-amber-50 p-3">
+            <input type="hidden" name="assetId" value={kitAssetId} />
+            <input type="hidden" name="itemId" value={entry.itemId} />
+            <input type="hidden" name="isPresent" value="missing" />
+            <input
+              name="note"
+              className="flex h-11 w-full rounded-xl border bg-white px-3 py-2 text-sm"
+              placeholder="Still on truck / missing from case"
+              defaultValue={entry.note ?? ""}
+            />
+            <Button type="submit" variant="outline" className="w-full">
+              <AlertTriangle className="h-4 w-4" />
+              Mark missing
+            </Button>
+          </form>
+        </div>
+      ) : null}
     </div>
   );
 }

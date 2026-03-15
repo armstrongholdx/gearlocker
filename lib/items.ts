@@ -1,4 +1,4 @@
-import { ItemStatus, Prisma } from "@prisma/client";
+import { ItemStatus, KitStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
@@ -48,6 +48,25 @@ export async function getInventory(filters: InventoryFilters = {}) {
       tags: {
         include: {
           tag: true,
+        },
+      },
+    },
+  });
+}
+
+export async function getInventoryActiveKits() {
+  return prisma.kit.findMany({
+    where: { status: KitStatus.active },
+    orderBy: { updatedAt: "desc" },
+    include: {
+      location: { include: { parentLocation: { include: { parentLocation: true } } } },
+      items: {
+        include: {
+          item: {
+            include: {
+              location: { include: { parentLocation: { include: { parentLocation: true } } } },
+            },
+          },
         },
       },
     },

@@ -42,11 +42,9 @@ export function InventoryTable({ items }: { items: InventoryItem[] }) {
           <thead>
             <tr className="border-b text-left text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
               <th className="pb-3 pr-4">Item</th>
-              <th className="pb-3 pr-4">Asset ID</th>
-              <th className="pb-3 pr-4">Category</th>
               <th className="pb-3 pr-4">Status</th>
-              <th className="pb-3 pr-4">Location / Tags</th>
-              <th className="pb-3 pr-4 text-right">Replacement</th>
+              <th className="pb-3 pr-4">Context</th>
+              <th className="pb-3 pr-4 text-right">More</th>
             </tr>
           </thead>
           <tbody>
@@ -64,21 +62,19 @@ export function InventoryTable({ items }: { items: InventoryItem[] }) {
                   <Link href={itemDetailPath(item.assetId)} className="font-semibold hover:underline">
                     {item.name}
                   </Link>
-                  {[item.brand, item.model].filter(Boolean).length > 0 ? <div className="mt-1 text-xs text-muted-foreground">{[item.brand, item.model].filter(Boolean).join(" ")}</div> : null}
-                </td>
-                <td className="py-4 pr-4">
                   <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-700">
                     {item.assetId}
                   </span>
-                </td>
-                <td className="py-4 pr-4">
-                  <Badge variant="outline">{item.category?.name ?? "Uncategorized"}</Badge>
+                  {[item.brand, item.model].filter(Boolean).length > 0 ? <div className="mt-2 text-xs text-muted-foreground">{[item.brand, item.model].filter(Boolean).join(" ")}</div> : null}
                 </td>
                 <td className="py-4 pr-4">
                   <StatusBadge status={item.status} />
                 </td>
                 <td className="py-4 pr-4">
-                  <div className="text-sm">{buildLocationPath(item.location)}</div>
+                  <div className="flex flex-wrap gap-2">
+                    {item.category?.name ? <Badge variant="outline">{item.category.name}</Badge> : null}
+                    <Badge variant="outline">{buildLocationPath(item.location)}</Badge>
+                  </div>
                   {item.tags.length > 0 ? (
                     <div className="mt-2 flex flex-wrap gap-1">
                       {item.tags.slice(0, 3).map((entry) => (
@@ -89,7 +85,11 @@ export function InventoryTable({ items }: { items: InventoryItem[] }) {
                     </div>
                   ) : null}
                 </td>
-                <td className="py-4 pl-4 pr-0 text-right font-semibold">{formatCurrency(item.replacementValue ? Number(item.replacementValue) : null, item.currency)}</td>
+                <td className="py-4 pl-4 pr-0 text-right">
+                  <Link href={itemDetailPath(item.assetId)} className="text-sm font-medium text-slate-700 hover:text-slate-950">
+                    Open
+                  </Link>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -115,7 +115,7 @@ export function InventoryTable({ items }: { items: InventoryItem[] }) {
               </div>
               <div className="mt-3 grid gap-2 text-sm text-muted-foreground">
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline">{item.category?.name ?? "Uncategorized"}</Badge>
+                  {item.category?.name ? <Badge variant="outline">{item.category.name}</Badge> : null}
                 </div>
                 <div className="flex items-start gap-2">
                   <MapPinned className="mt-0.5 h-4 w-4" />
@@ -135,7 +135,7 @@ export function InventoryTable({ items }: { items: InventoryItem[] }) {
                 ) : null}
               </div>
               <div className="mt-4 flex items-center justify-between border-t border-slate-200/70 pt-3">
-                <div className="text-sm font-semibold">{formatCurrency(item.replacementValue ? Number(item.replacementValue) : null, item.currency)}</div>
+                <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{item.assetId}</div>
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </div>
             </Link>

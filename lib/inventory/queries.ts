@@ -154,7 +154,7 @@ export async function getItemFormOptions({ includeKits = true, includeItems = fa
 }
 
 export async function getDashboardSummary() {
-  const [totalItems, categories, statuses, recentItems, recentHistory, totalKits, totalLocations, activeKits, incompleteKits] = await Promise.all([
+  const [totalItems, categories, statuses, recentItems, recentHistory, totalKits, totalLocations, activeKits, incompleteKits, incompleteKitList] = await Promise.all([
     prisma.item.count(),
     prisma.category.findMany({
       orderBy: { name: "asc" },
@@ -175,9 +175,15 @@ export async function getDashboardSummary() {
     prisma.location.count(),
     prisma.kit.count({ where: { status: KitStatus.active } }),
     prisma.kit.count({ where: { status: KitStatus.incomplete } }),
+    prisma.kit.findMany({
+      where: { status: KitStatus.incomplete },
+      orderBy: { updatedAt: "desc" },
+      take: 4,
+      include: { location: { include: { parentLocation: { include: { parentLocation: true } } } } },
+    }),
   ]);
 
-  return { totalItems, categories, statuses, recentItems, recentHistory, totalKits, totalLocations, activeKits, incompleteKits };
+  return { totalItems, categories, statuses, recentItems, recentHistory, totalKits, totalLocations, activeKits, incompleteKits, incompleteKitList };
 }
 
 export async function getGlobalOperationalAlerts() {
@@ -309,6 +315,34 @@ export async function getLocationPageData() {
       childLocations: { orderBy: [{ sortOrder: "asc" }, { name: "asc" }] },
       parentLocation: { include: { parentLocation: true } },
       _count: { select: { items: true, kits: true, childLocations: true } },
+    },
+  });
+}
+
+export async function getLocationById(locationId: string) {
+  return prisma.location.findUnique({
+    where: { id: locationId },
+    include: {
+      parentLocation: { include: { parentLocation: { include: { parentLocation: true } } } },
+      childLocations: {
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        include: { _count: { select: { items: true, kits: true } } },
+      },
+      items: {
+        orderBy: { assetId: "asc" },
+        include: {
+          category: true,
+          location: { include: { parentLocation: { include: { parentLocation: true } } } },
+          tags: { include: { tag: true } },
+        },
+      },
+      kits: {
+        orderBy: { assetId: "asc" },
+        include: {
+          location: { include: { parentLocation: { include: { parentLocation: true } } } },
+          items: { include: { item: true } },
+        },
+      },
     },
   });
 }

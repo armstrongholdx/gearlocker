@@ -4,10 +4,11 @@ import { ZodError } from "zod";
 import { getActionErrorMessage } from "@/lib/action-feedback";
 
 export type FormState = {
-  status: "idle" | "error";
+  status: "idle" | "error" | "success";
   message?: string;
   fieldErrors?: Record<string, string>;
   values?: Record<string, string>;
+  redirectTo?: string;
 };
 
 export function createEmptyFormState(): FormState {
@@ -23,6 +24,16 @@ export function createErrorFormState(
     message: getActionErrorMessage(error),
     fieldErrors: getFieldErrors(error),
     values,
+  };
+}
+
+export function createSuccessFormState(message: string, redirectTo?: string): FormState {
+  return {
+    status: "success",
+    message,
+    fieldErrors: {},
+    values: {},
+    redirectTo,
   };
 }
 

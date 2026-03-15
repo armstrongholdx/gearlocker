@@ -84,6 +84,18 @@ export function getActionErrorMessage(error: unknown) {
       return "That item is not part of this kit.";
     }
 
+    if (error.message.includes("No item found for asset ID")) {
+      return "Enter a correct Item Asset ID to add it to this kit.";
+    }
+
+    if (error.message.includes("No location found")) {
+      return "Choose a valid location before saving.";
+    }
+
+    if (error.message.includes("Location not found")) {
+      return "That location could not be found. Refresh and try again.";
+    }
+
     if (error.message.includes("No active return verification")) {
       return "Start a kit return verification session before confirming kit items.";
     }

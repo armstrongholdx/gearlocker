@@ -4,6 +4,7 @@ import type { ComponentType } from "react";
 
 import { AutoRefresh } from "@/components/realtime/auto-refresh";
 import { StatusBadge } from "@/components/inventory/status-badge";
+import { KitStatusBadge } from "@/components/kits/kit-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate } from "@/lib/format";
@@ -15,7 +16,7 @@ import { getWorkspaceContext } from "@/lib/workspace";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const { totalItems, categories, statuses, recentItems, recentHistory, totalKits, totalLocations, activeKits, incompleteKits } =
+  const { totalItems, categories, statuses, recentItems, recentHistory, totalKits, totalLocations, activeKits, incompleteKits, incompleteKitList } =
     await getDashboardSummary();
   const workspaceContext = await getWorkspaceContext();
   const activeCount = statuses.find((entry) => entry.status === "active")?._count.status ?? 0;
@@ -92,6 +93,26 @@ export default async function DashboardPage() {
                 </div>
               </div>
             ))}
+            {incompleteKitList.length > 0 ? (
+              <div className="pt-2">
+                <div className="mb-2 text-xs uppercase tracking-[0.16em] text-muted-foreground">Incomplete kits</div>
+                <div className="space-y-2">
+                  {incompleteKitList.map((kit) => (
+                    <Link
+                      key={kit.id}
+                      href={`/kits/${encodeURIComponent(kit.assetId)}`}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 transition hover:border-amber-300"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-medium">{kit.assetId} · {kit.name}</div>
+                        <div className="text-xs text-amber-900/70">{kit.location ? kit.location.name : "No location"}</div>
+                      </div>
+                      <KitStatusBadge status={kit.status} />
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       </section>

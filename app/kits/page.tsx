@@ -7,9 +7,10 @@ import { KitCreateForm } from "@/components/forms/kit-create-form";
 import { KitStatusBadge } from "@/components/kits/kit-status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { buildActionSuccessPath } from "@/lib/action-feedback";
 import { buildLocationPath } from "@/lib/inventory/domain";
 import type { FormState } from "@/lib/form-state";
-import { createErrorFormState, extractFormValues } from "@/lib/form-state";
+import { createErrorFormState, createSuccessFormState, extractFormValues } from "@/lib/form-state";
 import { createKitRecord } from "@/lib/inventory/mutations";
 import { getKitPageData } from "@/lib/inventory/queries";
 import { itemDetailPath, itemScanPath, kitDetailPath, kitReturnPath } from "@/lib/paths";
@@ -26,12 +27,10 @@ async function createKit(
 
   try {
     const kit = await createKitRecord(formData);
-    redirect(`${kitDetailPath(kit.assetId)}?success=${encodeURIComponent("Kit created.")}`);
+    return createSuccessFormState("Kit successfully created.", buildActionSuccessPath(kitDetailPath(kit.assetId), "Kit successfully created."));
   } catch (error) {
     return createErrorFormState(error, extractFormValues(formData, [...kitFieldNames]));
   }
-
-  return state;
 }
 
 export default async function KitsPage({
@@ -46,8 +45,7 @@ export default async function KitsPage({
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Kits</div>
-          <h1 className="text-3xl font-semibold tracking-tight">Package management for repeatable gear sets</h1>
-          <p className="mt-2 max-w-2xl text-muted-foreground">Understand kit readiness, location context, shared items, and return completeness at a glance.</p>
+          <h1 className="text-3xl font-semibold tracking-tight">Kits</h1>
         </div>
         <div className="grid grid-cols-3 gap-3">
           <KitStat label="Kits" value={String(kits.length)} icon={Boxes} />
@@ -75,7 +73,6 @@ export default async function KitsPage({
                   <KitStatusBadge status={kit.status} />
                   <div className="rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">{kit.code ?? "No kit code"}</div>
                 </div>
-                <p className="text-muted-foreground">{kit.description ?? "No description"}</p>
                 <div className="grid gap-3 md:grid-cols-2">
                   <InfoTile label="Home location" value={buildLocationPath(kit.location)} />
                   <InfoTile label="Member items" value={`${kit.items.length} items`} />
@@ -96,16 +93,21 @@ export default async function KitsPage({
                   );
                 })()}
                 {kit.items.length > 0 ? (
-                  <div className="rounded-[1.1rem] border border-slate-200 bg-white/70 p-3">
-                    {kit.items.map((entry) => (
-                      <div key={entry.itemId} className="flex items-center justify-between gap-3 py-2">
-                        <Link href={itemDetailPath(entry.item.assetId)} className="hover:underline">
-                          {entry.item.assetId} · {entry.item.name}
-                        </Link>
-                        <span className="rounded-full bg-secondary px-2.5 py-1 text-xs text-muted-foreground">Qty {entry.quantity}</span>
-                      </div>
-                    ))}
-                  </div>
+                  <details className="rounded-[1.1rem] border border-slate-200 bg-white/70 p-3">
+                    <summary className="cursor-pointer list-none text-sm font-medium">
+                      View contents
+                    </summary>
+                    <div className="mt-3 border-t border-slate-200 pt-3">
+                      {kit.items.map((entry) => (
+                        <div key={entry.itemId} className="flex items-center justify-between gap-3 py-2">
+                          <Link href={itemDetailPath(entry.item.assetId)} className="hover:underline">
+                            {entry.item.assetId} · {entry.item.name}
+                          </Link>
+                          <span className="rounded-full bg-secondary px-2.5 py-1 text-xs text-muted-foreground">Qty {entry.quantity}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
                 ) : null}
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" size="sm" asChild>

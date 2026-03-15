@@ -15,7 +15,9 @@ import {
   removePackageChecklistContentSchema,
   removeItemFromKitSchema,
   removePackageContentSchema,
+  updateKitDetailsSchema,
   updateItemSchema,
+  updateLocationSchema,
   verifyKitItemSchema,
   verifyKitItemByAssetIdSchema,
 } from "@/lib/inventory/validators";
@@ -63,6 +65,7 @@ function formDataToItemPayload(formData: FormData) {
     purchaseSource: formData.get("purchaseSource"),
     purchaseReference: formData.get("purchaseReference"),
     warrantyExpiresAt: formData.get("warrantyExpiresAt"),
+    imageCoverUrl: formData.get("imageCoverUrl"),
     subcategory: formData.get("subcategory"),
     description: formData.get("description"),
     conditionGrade: formData.get("conditionGrade") || undefined,
@@ -94,6 +97,7 @@ async function buildItemWriteData(parsed: ReturnType<typeof createItemSchema.par
     purchaseSource: parsed.purchaseSource || null,
     purchaseReference: parsed.purchaseReference || null,
     warrantyExpiresAt: parsed.warrantyExpiresAt ? new Date(parsed.warrantyExpiresAt) : null,
+    imageCoverUrl: parsed.imageCoverUrl || null,
     notes: parsed.notes || null,
     ownerName: parsed.ownerName || null,
     qrCodeValue: buildQrCodeValue(parsed.assetId),
@@ -359,8 +363,12 @@ export async function addItemMembershipToKit(formData: FormData) {
     notes: formData.get("notes"),
   });
 
-  const item = await prisma.item.findUniqueOrThrow({ where: { assetId: parsed.assetId } });
+  const item = await prisma.item.findUnique({ where: { assetId: parsed.assetId } });
   const kit = await prisma.kit.findUniqueOrThrow({ where: { id: parsed.kitId } });
+
+  if (!item) {
+    throw new Error(`No item found for asset ID ${parsed.assetId}.`);
+  }
 
   await prisma.itemKit.upsert({
     where: { itemId_kitId: { itemId: item.id, kitId: kit.id } },
@@ -534,7 +542,13 @@ export async function setKitStatus(formData: FormData) {
 
   const kit = await prisma.kit.findUniqueOrThrow({ where: { assetId } });
   if (nextStatus === KitStatus.available && kit.status !== KitStatus.available) {
-    throw new Error("Kits must complete item-level return verification before becoming available again.");
+    const activeSession = await prisma.kitVerificationSession.findFirst({
+      where: { kitId: kit.id, status: KitVerificationStatus.in_progress },
+    });
+
+    if (activeSession) {
+      throw new Error("Kits must complete item-level return verification before becoming available again.");
+    }
   }
 
   const updated = await prisma.kit.update({
@@ -828,4 +842,71 @@ export async function createLocationRecord(formData: FormData) {
       ...(parsed.parentLocationId ? { parentLocation: { connect: { id: parsed.parentLocationId } } } : {}),
     },
   });
+}
+
+export async function updateLocationRecord(formData: FormData) {
+  const parsed = updateLocationSchema.parse({
+    locationId: formData.get("locationId"),
+    name: formData.get("name"),
+    code: formData.get("code"),
+    description: formData.get("description"),
+    parentLocationId: formData.get("parentLocationId"),
+  });
+
+  const existing = await prisma.location.findUnique({ where: { id: parsed.locationId } });
+  if (!existing) {
+    throw new Error("Location not found.");
+  }
+
+  if (parsed.parentLocationId === parsed.locationId) {
+    throw new Error("A location cannot be its own parent.");
+  }
+
+  return prisma.location.update({
+    where: { id: parsed.locationId },
+    data: {
+      name: parsed.name,
+      code: parsed.code || null,
+      description: parsed.description || null,
+      parentLocation: parsed.parentLocationId ? { connect: { id: parsed.parentLocationId } } : { disconnect: true },
+    },
+  });
+}
+
+export async function updateKitDetails(formData: FormData) {
+  const parsed = updateKitDetailsSchema.parse({
+    assetId: formData.get("assetId"),
+    name: formData.get("name"),
+    code: formData.get("code"),
+    description: formData.get("description"),
+    locationId: formData.get("locationId"),
+    notes: formData.get("notes"),
+  });
+
+  const existing = await prisma.kit.findUniqueOrThrow({ where: { assetId: parsed.assetId } });
+
+  const updated = await prisma.kit.update({
+    where: { assetId: parsed.assetId },
+    data: {
+      name: parsed.name,
+      code: parsed.code || null,
+      description: parsed.description || null,
+      notes: parsed.notes || null,
+      location: parsed.locationId ? { connect: { id: parsed.locationId } } : { disconnect: true },
+    },
+  });
+
+  await prisma.kitHistoryEvent.create({
+    data: {
+      kitId: updated.id,
+      type: KitHistoryType.updated,
+      summary: `${updated.assetId} details updated`,
+      details: parsed.notes || parsed.description || null,
+      statusFrom: existing.status,
+      statusTo: updated.status,
+      metadata: { source: "updateKitDetails" },
+    },
+  });
+
+  return updated;
 }

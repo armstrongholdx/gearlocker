@@ -41,6 +41,7 @@ export const createItemSchema = z.object({
   purchaseSource: optionalText,
   purchaseReference: optionalText,
   warrantyExpiresAt: optionalDate,
+  imageCoverUrl: optionalText,
   subcategory: optionalText,
   description: optionalText,
   conditionGrade: z.nativeEnum(ConditionGrade).optional(),
@@ -87,6 +88,19 @@ export const createLocationSchema = z.object({
   code: optionalText,
   description: optionalText,
   parentLocationId: optionalText,
+});
+
+export const updateLocationSchema = createLocationSchema.extend({
+  locationId: z.string().trim().min(1),
+});
+
+export const updateKitDetailsSchema = z.object({
+  assetId: z.string().trim().min(1),
+  name: z.string().trim().min(1).max(160),
+  code: optionalText,
+  description: optionalText,
+  locationId: optionalText,
+  notes: optionalText,
 });
 
 export const moveItemSchema = z.object({

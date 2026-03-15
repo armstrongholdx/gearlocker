@@ -18,6 +18,10 @@ export function kitReturnPath(assetId: string) {
   return `${kitDetailPath(assetId)}/return`;
 }
 
+export function locationDetailPath(locationId: string) {
+  return `/locations/${encodeURIComponent(locationId)}`;
+}
+
 export function itemLabelPath(assetId: string) {
   return `/labels/${encodeURIComponent(assetId)}`;
 }

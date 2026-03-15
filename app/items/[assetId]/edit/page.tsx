@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { Box, FolderTree, Package2, Tags } from "lucide-react";
 
 import { ItemUpsertForm } from "@/components/forms/item-upsert-form";
@@ -7,9 +7,10 @@ import { type ItemFormValues } from "@/components/items/item-form-fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { buildActionSuccessPath } from "@/lib/action-feedback";
 import { formatDateInput } from "@/lib/format";
 import type { FormState } from "@/lib/form-state";
-import { createErrorFormState, extractFormValues } from "@/lib/form-state";
+import { createErrorFormState, createSuccessFormState, extractFormValues } from "@/lib/form-state";
 import { buildLocationPath, itemStatusMeta } from "@/lib/inventory/domain";
 import { updateItemRecord } from "@/lib/inventory/mutations";
 import { getItemByAssetId, getItemFormOptions } from "@/lib/inventory/queries";
@@ -37,6 +38,7 @@ const itemFieldNames = [
   "purchaseSource",
   "purchaseReference",
   "warrantyExpiresAt",
+  "imageCoverUrl",
   "quantity",
   "tagNames",
   "conditionNotes",
@@ -49,12 +51,10 @@ async function updateItem(state: FormState, formData: FormData): Promise<FormSta
 
   try {
     const item = await updateItemRecord(formData);
-    redirect(itemDetailPath(item.assetId));
+    return createSuccessFormState("Item successfully updated.", buildActionSuccessPath(itemDetailPath(item.assetId), "Item successfully updated."));
   } catch (error) {
     return createErrorFormState(error, extractFormValues(formData, [...itemFieldNames]));
   }
-
-  return state;
 }
 
 export default async function EditItemPage({
@@ -122,6 +122,7 @@ export default async function EditItemPage({
                 purchaseSource: item.purchaseSource,
                 purchaseReference: item.purchaseReference,
                 warrantyExpiresAt: formatDateInput(item.warrantyExpiresAt),
+                imageCoverUrl: item.imageCoverUrl,
                 quantity: item.quantity,
                 tagNames: item.tags.map((entry) => entry.tag.name).join(", "),
                 conditionNotes: item.conditionNotes,
