@@ -6,6 +6,7 @@ import { AttachmentType, ItemStatus } from "@prisma/client";
 import { FileStack, FolderTree, Package2, PencilLine, QrCode, Route, Shield } from "lucide-react";
 
 import { StatusBadge } from "@/components/inventory/status-badge";
+import { ItemPhotoCapture } from "@/components/items/item-photo-capture";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
@@ -283,6 +284,9 @@ export default async function ItemDetailPage({
                 <div className="mt-4">
                   <div className="font-mono text-sm font-semibold">{item.assetId}</div>
                   <div className="text-sm text-muted-foreground">{item.name}</div>
+                  <div className="mt-4">
+                    <ItemPhotoCapture assetId={item.assetId} />
+                  </div>
                   <div className="mt-3 text-xs text-muted-foreground">
                     Scans resolve to <span className="font-mono">{publicScanUrl}</span>
                   </div>

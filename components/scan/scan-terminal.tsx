@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 
 import { CameraScanner } from "@/components/scan/camera-scanner";
 import { StatusBadge } from "@/components/inventory/status-badge";
+import { ItemPhotoCapture } from "@/components/items/item-photo-capture";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -162,6 +163,7 @@ export function ScanTerminal() {
           ? "Check the last scan"
           : "Last scan needs attention"
       : "Recent scans";
+  const isActiveItemScan = payload?.type === "item" && payload.entity.status === "active" && panelState.phase === "scanned";
 
   function scheduleReset(delay = 2600) {
     if (resetTimerRef.current) {
@@ -587,24 +589,45 @@ export function ScanTerminal() {
 
               {panelState.phase !== "warning" && payload.type === "item" ? (
                 <>
-                  <div className="mt-4 grid grid-cols-2 gap-2.5">
-                    {primaryItemAction ? <ActionChip label={primaryItemAction.label} priority="primary" onClick={() => runItemAction(primaryItemAction.action)} /> : null}
-                    <ActionChip label="Relocate" icon={<MapPinned className="h-4 w-4" />} onClick={() => setMoveOpen((current) => !current)} />
-                    <ActionChip label="Needs repair" icon={<Wrench className="h-4 w-4" />} onClick={() => runItemAction("repair")} />
-                    {payload.entity.status !== "active" && primaryItemAction?.action !== "check_out" ? (
-                      <ActionChip label="Check out" onClick={() => runItemAction("check_out")} />
-                    ) : null}
-                    {payload.entity.status !== "available" && primaryItemAction?.action !== "check_in" ? (
-                      <ActionChip label="Check in" onClick={() => runItemAction("check_in")} />
-                    ) : null}
-                    <ActionChip label="Missing" icon={<AlertTriangle className="h-4 w-4" />} onClick={() => runItemAction("missing")} />
-                    <Button asChild variant="outline" className="h-12 justify-center border-white/15 bg-white/5 text-white hover:bg-white/10">
-                      <Link href={`/items/${encodeURIComponent(payload.entity.assetId)}`}>
-                        Inspect
-                        <ChevronRight className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                  </div>
+                  {isActiveItemScan ? (
+                    <div className="mt-4 rounded-[1.25rem] border border-emerald-300/20 bg-emerald-500/10 p-3">
+                      <div className="text-[11px] uppercase tracking-[0.18em] text-emerald-200/80">Active item</div>
+                      <div className="mt-1 text-sm text-emerald-50">This item is currently out. Choose the next handling action.</div>
+                      <div className="mt-3 grid grid-cols-2 gap-2.5">
+                        <ActionChip label="Return / Check in" priority="primary" onClick={() => runItemAction("check_in")} />
+                        <ActionChip label="Relocate" icon={<MapPinned className="h-4 w-4" />} onClick={() => setMoveOpen((current) => !current)} />
+                        <ActionChip label="Needs repair" icon={<Wrench className="h-4 w-4" />} onClick={() => runItemAction("repair")} />
+                        <Button asChild variant="outline" className="h-12 rounded-2xl justify-center border-white/15 bg-white/5 text-white hover:bg-white/10">
+                          <Link href={`/items/${encodeURIComponent(payload.entity.assetId)}`}>
+                            Inspect
+                            <ChevronRight className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                      </div>
+                      <div className="mt-3">
+                        <ItemPhotoCapture assetId={payload.entity.assetId} compact />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-4 grid grid-cols-2 gap-2.5">
+                      {primaryItemAction ? <ActionChip label={primaryItemAction.label} priority="primary" onClick={() => runItemAction(primaryItemAction.action)} /> : null}
+                      <ActionChip label="Relocate" icon={<MapPinned className="h-4 w-4" />} onClick={() => setMoveOpen((current) => !current)} />
+                      <ActionChip label="Needs repair" icon={<Wrench className="h-4 w-4" />} onClick={() => runItemAction("repair")} />
+                      {payload.entity.status !== "active" && primaryItemAction?.action !== "check_out" ? (
+                        <ActionChip label="Check out" onClick={() => runItemAction("check_out")} />
+                      ) : null}
+                      {payload.entity.status !== "available" && primaryItemAction?.action !== "check_in" ? (
+                        <ActionChip label="Check in" onClick={() => runItemAction("check_in")} />
+                      ) : null}
+                      <ActionChip label="Missing" icon={<AlertTriangle className="h-4 w-4" />} onClick={() => runItemAction("missing")} />
+                      <Button asChild variant="outline" className="h-12 justify-center border-white/15 bg-white/5 text-white hover:bg-white/10">
+                        <Link href={`/items/${encodeURIComponent(payload.entity.assetId)}`}>
+                          Inspect
+                          <ChevronRight className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </div>
+                  )}
 
                   {moveOpen ? (
                     <div className="mt-3 space-y-2 rounded-[1rem] border border-white/10 bg-black/20 p-3">

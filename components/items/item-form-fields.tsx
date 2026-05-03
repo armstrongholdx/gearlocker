@@ -196,12 +196,6 @@ export function ItemFormFields({
         <Input id="warrantyExpiresAt" name="warrantyExpiresAt" type="date" defaultValue={values.warrantyExpiresAt ?? ""} />
         <FieldError message={errors.warrantyExpiresAt} />
       </Field>
-      <Field className="md:col-span-2">
-        <Label htmlFor="imageCoverUrl">Cover image URL</Label>
-        <Input id="imageCoverUrl" name="imageCoverUrl" placeholder="https://..." defaultValue={values.imageCoverUrl ?? ""} />
-        <p className="text-xs text-muted-foreground">Temporary photo field until direct uploads are wired in.</p>
-        <FieldError message={errors.imageCoverUrl} />
-      </Field>
       </FormSection>
 
       <FormSection
